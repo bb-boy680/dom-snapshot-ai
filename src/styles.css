@@ -290,6 +290,7 @@
 }
 .sel-dot.attached { background: #34c759; }
 .tb-divider { width: 1px; background: rgba(255, 255, 255, 0.12); margin: 6px 0; }
+.tb-btn + .tb-btn { box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.12); }
 .tb-btn {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 0 12px;
