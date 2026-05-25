@@ -7,6 +7,8 @@ export interface InteractCallbacks {
 }
 
 const MOUSE_EVENTS = ['mousedown', 'mouseup', 'click', 'contextmenu', 'dblclick', 'auxclick'] as const;
+// Pointer events - intercept pointerdown to handle selection before setPointerCapture
+const POINTER_CLICK_EVENTS = ['pointerdown'] as const;
 
 export function initInteract(cb: InteractCallbacks): () => void {
   const hoverEl = makeOverlay({
@@ -41,7 +43,7 @@ export function initInteract(cb: InteractCallbacks): () => void {
     });
   };
 
-  const onMove = (e: MouseEvent): void => {
+  const onMove = (e: MouseEvent | PointerEvent): void => {
     if (isFromPanel(e)) {
       hoverEl.style.display = 'none';
       return;
@@ -71,14 +73,24 @@ export function initInteract(cb: InteractCallbacks): () => void {
     if (focused && typeof focused.blur === 'function') focused.blur();
   };
 
-  const blocker = (e: MouseEvent): void => {
+  const blocker = (e: MouseEvent | PointerEvent): void => {
     if (isFromPanel(e)) return;
+
+    // For pointerdown: stop propagation only (no preventDefault) to prevent
+    // host-page drag / setPointerCapture from stealing the gesture.
+    // We must NOT call preventDefault() here because the Pointer Events spec
+    // says that cancels compatibility mouse events (mousedown / click), which
+    // the toolbar inside our Shadow DOM still relies on.
+    if (e.type === 'pointerdown') {
+      const el = pickEl(e.clientX, e.clientY);
+      if (!el) return;
+      e.stopImmediatePropagation();
+      return;
+    }
+
+    // For mouse events: use preventDefault to block page interactions
     e.preventDefault();
     e.stopImmediatePropagation();
-    // We just preventDefault'd a mousedown, which normally moves focus away
-    // from whatever was focused. That means a focused contenteditable inside
-    // our panel stays focused forever and keeps eating keystrokes (Space, Esc).
-    // Manually blur it on mousedown so clicking the page exits the editor.
     if (e.type === 'mousedown') blurPanelIfFocused();
     if (e.type !== 'click') return;
     const el = pickEl(e.clientX, e.clientY);
@@ -86,7 +98,6 @@ export function initInteract(cb: InteractCallbacks): () => void {
     const id = addElement(el, e.shiftKey);
     hoverEl.style.display = 'none';
     cb.onSelect(el, id);
-    // Shift+click: auto-attach, so insert chip into editor immediately
     if (e.shiftKey) {
       emit({ type: 'chip-insert-request', id });
     }
@@ -162,7 +173,13 @@ export function initInteract(cb: InteractCallbacks): () => void {
     for (const t of MOUSE_EVENTS) {
       window.addEventListener(t, blocker as EventListener, { capture: true, passive: false });
     }
+    // Also listen to pointer events for components that use Pointer Events API
+    // (e.g., Radix UI dialogs with pointer capture)
+    for (const t of POINTER_CLICK_EVENTS) {
+      window.addEventListener(t, blocker as EventListener, { capture: true, passive: false });
+    }
     window.addEventListener('mousemove', onMove as EventListener, true);
+    window.addEventListener('pointermove', onMove as EventListener, true);
     window.addEventListener('scroll', onScroll, true);
     window.addEventListener('resize', onScroll);
   };
@@ -171,7 +188,11 @@ export function initInteract(cb: InteractCallbacks): () => void {
     for (const t of MOUSE_EVENTS) {
       window.removeEventListener(t, blocker as EventListener, { capture: true });
     }
+    for (const t of POINTER_CLICK_EVENTS) {
+      window.removeEventListener(t, blocker as EventListener, { capture: true });
+    }
     window.removeEventListener('mousemove', onMove as EventListener, true);
+    window.removeEventListener('pointermove', onMove as EventListener, true);
     window.removeEventListener('scroll', onScroll, true);
     window.removeEventListener('resize', onScroll);
     hoverEl.style.display = 'none';
