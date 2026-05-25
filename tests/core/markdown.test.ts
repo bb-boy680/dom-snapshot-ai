@@ -33,7 +33,7 @@ describe('buildMarkdown', () => {
     ];
     const out = buildMarkdown(segs, [item]);
     expect(out).toContain('把');
-    expect(out).toContain('# Element: section.pricing');
+    expect(out).toContain('# Element: <section class="pricing">');
     expect(out).toContain('- **selector**: section.pricing');
     expect(out).toContain('改成三列。');
     // chip block should appear between the two text segments.
@@ -97,6 +97,15 @@ describe('buildMarkdown', () => {
     expect(out).toContain('gap: 12px;');
   });
 
+  it('falls back to <tag> heading when htmlSnap.html is empty', () => {
+    const item = mkItem({
+      selector: 'body > main > section.steps > article.step > div.step-body > h3',
+      htmlSnap: { html: '', lineCount: 0, charCount: 0 },
+    });
+    const out = buildMarkdown([{ kind: 'chip', id: 'sel_1' }], [item]);
+    expect(out).toContain('# Element: <h3>');
+  });
+
   it('full PRD-shaped snapshot for one chip surrounded by text', () => {
     const item = mkItem({
       selector: 'div.product-card',
@@ -120,7 +129,7 @@ describe('buildMarkdown', () => {
       { kind: 'text', value: '整体改成深色：背景 #0a0a0a，主文本 #f5f5f7。' },
     ];
     const out = buildMarkdown(segs, [item]);
-    expect(out).toContain('# Element: div.product-card');
+    expect(out).toContain('# Element: <div class="product-card">');
     expect(out).toContain('- **selector**: div.product-card');
     expect(out).toContain('- **Modification Request**:');
     expect(out).toContain('```text');

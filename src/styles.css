@@ -195,6 +195,15 @@
   color: rgba(255, 255, 255, 0.4);
   font-style: italic;
 }
+.tt-pill {
+  display: inline-block;
+  padding: 1px 5px;
+  margin: 0 3px 3px 0;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  font-size: 10px;
+  line-height: 14px;
+}
 
 /* Dock wrapper (icon-only; collapsed = inspection paused) */
 .dock-wrap { display: contents; }

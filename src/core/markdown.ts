@@ -38,7 +38,7 @@ export function buildMarkdown(segments: Segment[], items: SelectionItem[]): stri
 
 function renderElementBlock(item: SelectionItem): string {
   const lines: string[] = [];
-  lines.push(`# Element: ${item.selector}`);
+  lines.push(`# Element: ${elementHeading(item)}`);
   lines.push(`- **URL**: ${currentUrlPath()}`);
   lines.push('');
   lines.push(`- **selector**: ${item.selector}`);
@@ -72,4 +72,18 @@ function currentUrlPath(): string {
   } catch {
     return '/';
   }
+}
+
+function elementHeading(item: SelectionItem): string {
+  const fromHtml = firstOpenTag(item.htmlSnap.html);
+  if (fromHtml) return fromHtml;
+  // Fallback: derive `<tag>` from the trailing segment of the selector.
+  const last = item.selector.split('>').pop()?.trim() ?? '';
+  const tag = last.split(/[.#[:\s]/, 1)[0] || 'element';
+  return `<${tag}>`;
+}
+
+function firstOpenTag(html: string): string {
+  const m = html.match(/<[a-zA-Z][^>]*>/);
+  return m ? m[0] : '';
 }

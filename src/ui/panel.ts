@@ -4,6 +4,7 @@ import {
 } from '../core/store';
 import type { SelectionItem, Segment } from '../core/markdown';
 import { buildMarkdown } from '../core/markdown';
+import { groupStyle, type StyleGroupId } from '../core/style-groups';
 import {
   applyDockPos, applyPanelPos, makeDockDraggable, makePanelDraggable,
   readDockPos, readPanelPos,
@@ -449,9 +450,8 @@ function buildChipContent(item: SelectionItem): Node[] {
 function buildTooltip(item: SelectionItem): HTMLElement {
   const tt = document.createElement('span');
   tt.className = 'tag-tooltip';
-  // Styles 行只显示总数（不按分组拆 pill），与 mockups/panel.html 第 4 状态一致。
   const styleRow = item.styles.length
-    ? `<span class="tt-val">${item.styles.length} 个属性</span>`
+    ? `<span class="tt-val">${renderStylePills(item.styles)}</span>`
     : `<span class="tt-val tt-empty">未勾选任何属性</span>`;
   const htmlRow = item.htmlAttached
     ? `<span class="tt-val">${item.htmlMode} · ${item.htmlSnap.lineCount} 行 · ${item.htmlSnap.charCount}B</span>`
@@ -466,6 +466,28 @@ function buildTooltip(item: SelectionItem): HTMLElement {
     <div class="tt-row"><span class="tt-key">Edit</span>${noteRow}</div>
   `;
   return tt;
+}
+
+const GROUP_LABEL: Record<StyleGroupId, string> = {
+  layout: 'Layout',
+  text: 'Text',
+  bg: 'Bg',
+  border: 'Border',
+  effects: 'Effects',
+  other: 'Other',
+};
+const GROUP_ORDER: StyleGroupId[] = ['layout', 'text', 'bg', 'border', 'effects', 'other'];
+
+function renderStylePills(styles: SelectionItem['styles']): string {
+  const counts: Partial<Record<StyleGroupId, number>> = {};
+  for (const p of styles) {
+    const g = groupStyle(p.k);
+    counts[g] = (counts[g] ?? 0) + 1;
+  }
+  return GROUP_ORDER
+    .filter((g) => counts[g])
+    .map((g) => `<span class="tt-pill">${GROUP_LABEL[g]} ${counts[g]}</span>`)
+    .join('');
 }
 
 function escapeHtml(s: string): string {
