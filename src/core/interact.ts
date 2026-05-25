@@ -86,6 +86,10 @@ export function initInteract(cb: InteractCallbacks): () => void {
     const id = addElement(el, e.shiftKey);
     hoverEl.style.display = 'none';
     cb.onSelect(el, id);
+    // Shift+click: auto-attach, so insert chip into editor immediately
+    if (e.shiftKey) {
+      emit({ type: 'chip-insert-request', id });
+    }
   };
 
   const onKey = (e: KeyboardEvent): void => {
@@ -102,6 +106,13 @@ export function initInteract(cb: InteractCallbacks): () => void {
       hoverEl.style.display = 'none';
       selectedEl.style.display = 'none';
       blurPanelIfFocused();
+      return;
+    }
+
+    // Copy shortcut works even when editor is focused: Alt+C on Windows, ⌘C on macOS
+    if ((e.altKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+      e.preventDefault();
+      emit({ type: 'copy-request' });
       return;
     }
 

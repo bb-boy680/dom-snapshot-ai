@@ -16,7 +16,6 @@ const SHORTCUTS: Array<[string, string]> = [
   ['←↑↓→', 'Navigate'],
   ['Space', 'Pause'],
   ['⌘C', 'Copy'],
-  ['⌘Z', 'Undo'],
   ['Esc', 'Clear'],
 ];
 
@@ -195,6 +194,14 @@ export function renderPanel(root: ShadowRoot, onClose: () => void): () => void {
     } else if (e.type === 'editor-clear' && editor) {
       editor.clearAll();
       updateFooterCount(0);
+    } else if (e.type === 'copy-request' && editor) {
+      // Handle keyboard shortcut copy request
+      const segments = editor.serialize();
+      const md = buildMarkdown(segments, getState().items);
+      navigator.clipboard.writeText(md).then(
+        () => showToast('success', '已复制到剪贴板'),
+        () => showToast('error', '复制失败'),
+      );
     }
   });
 
