@@ -7,6 +7,7 @@ export interface Snapshot {
 }
 
 const TEXT_LIMIT = 100;
+const INNER_HTML_LIMIT = 200;
 const VOID_TAGS = new Set([
   'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
   'link', 'meta', 'param', 'source', 'track', 'wbr',
@@ -25,7 +26,13 @@ function buildSimplified(el: Element): string {
   const tag = el.tagName.toLowerCase();
   const attrs = renderAttrs(el);
   if (VOID_TAGS.has(tag)) return `<${tag}${attrs}>`;
-  return `<${tag}${attrs}></${tag}>`;
+  const inner = el.innerHTML.trim();
+  const truncated = inner.length > INNER_HTML_LIMIT ? inner.slice(0, INNER_HTML_LIMIT) + '…' : inner;
+  // If innerHTML has newlines, put closing tag on new line
+  if (truncated.includes('\n')) {
+    return `<${tag}${attrs}>\n${truncated}\n</${tag}>`;
+  }
+  return `<${tag}${attrs}>${truncated}</${tag}>`;
 }
 
 function buildFull(el: Element): string {
