@@ -2,6 +2,24 @@ import { addElement, clearAll, emit, getElement, getState, setEnabled, setPanelC
 
 export const HOST_ID = '__dom_snapshot_ai_root__';
 
+const HOVER_ATTR = 'data-dsai-hover';
+const SELECTED_ATTR = 'data-dsai-selected';
+const STYLE_ID = '__dom_snapshot_ai_outline_style__';
+
+const OUTLINE_CSS = `
+html.__dsai_active__, html.__dsai_active__ * { cursor: crosshair !important; }
+[${HOVER_ATTR}] {
+  outline: 1.5px dashed #0066cc !important;
+  outline-offset: 2px !important;
+  background-color: rgba(0, 102, 204, 0.045) !important;
+}
+[${SELECTED_ATTR}] {
+  outline: 2px solid #0066cc !important;
+  outline-offset: 3px !important;
+  background-color: rgba(0, 102, 204, 0.055) !important;
+}
+`;
+
 export interface InteractCallbacks {
   onSelect: (el: Element, id: string) => void;
 }
@@ -11,57 +29,45 @@ const MOUSE_EVENTS = ['mousedown', 'mouseup', 'click', 'contextmenu', 'dblclick'
 const POINTER_CLICK_EVENTS = ['pointerdown'] as const;
 
 export function initInteract(cb: InteractCallbacks): () => void {
-  const hoverEl = makeOverlay({
-    border: '1.5px dashed #0066cc',
-    background: 'rgba(0, 102, 204, 0.045)',
-  });
-  const selectedEl = makeOverlay({
-    border: '2px solid #0066cc',
-    background: 'rgba(0, 102, 204, 0.055)',
-    transition: 'none',
-  });
-  document.body.appendChild(selectedEl);
-  document.body.appendChild(hoverEl);
+  injectOutlineStyle();
+
+  let hoveredEl: Element | null = null;
+  let selectedEl: Element | null = null;
 
   let bound = false;
   let disposed = false;
 
-  const positionSelected = (): void => {
+  const setHovered = (el: Element | null): void => {
+    if (hoveredEl === el) return;
+    if (hoveredEl) hoveredEl.removeAttribute(HOVER_ATTR);
+    hoveredEl = el;
+    if (el) el.setAttribute(HOVER_ATTR, '');
+  };
+
+  const setSelected = (el: Element | null): void => {
+    if (selectedEl === el) return;
+    if (selectedEl) selectedEl.removeAttribute(SELECTED_ATTR);
+    selectedEl = el;
+    if (el) el.setAttribute(SELECTED_ATTR, '');
+  };
+
+  const syncSelectedFromState = (): void => {
     const { activeId, enabled } = getState();
-    const el = activeId ? getElement(activeId) : null;
-    if (!el || !enabled) {
-      selectedEl.style.display = 'none';
-      return;
-    }
-    const r = el.getBoundingClientRect();
-    Object.assign(selectedEl.style, {
-      display: 'block',
-      left: `${r.left - 3}px`,
-      top: `${r.top - 3}px`,
-      width: `${r.width + 2}px`,
-      height: `${r.height + 2}px`,
-    });
+    const el = activeId && enabled ? getElement(activeId) ?? null : null;
+    setSelected(el);
   };
 
   const onMove = (e: MouseEvent | PointerEvent): void => {
     if (isFromPanel(e)) {
-      hoverEl.style.display = 'none';
+      setHovered(null);
       return;
     }
     const el = pickEl(e.clientX, e.clientY);
-    const activeEl = getElement(getState().activeId ?? '');
-    if (!el || el === activeEl) {
-      hoverEl.style.display = 'none';
+    if (!el || el === selectedEl) {
+      setHovered(null);
       return;
     }
-    const r = el.getBoundingClientRect();
-    Object.assign(hoverEl.style, {
-      display: 'block',
-      left: `${r.left - 2}px`,
-      top: `${r.top - 2}px`,
-      width: `${r.width}px`,
-      height: `${r.height}px`,
-    });
+    setHovered(el);
   };
 
   const blurPanelIfFocused = (): void => {
@@ -96,7 +102,7 @@ export function initInteract(cb: InteractCallbacks): () => void {
     const el = pickEl(e.clientX, e.clientY);
     if (!el) return;
     const id = addElement(el, e.shiftKey);
-    hoverEl.style.display = 'none';
+    setHovered(null);
     cb.onSelect(el, id);
     if (e.shiftKey) {
       emit({ type: 'chip-insert-request', id });
@@ -114,8 +120,8 @@ export function initInteract(cb: InteractCallbacks): () => void {
       e.preventDefault();
       clearAll();
       emit({ type: 'editor-clear' });
-      hoverEl.style.display = 'none';
-      selectedEl.style.display = 'none';
+      setHovered(null);
+      setSelected(null);
       blurPanelIfFocused();
       return;
     }
@@ -167,8 +173,6 @@ export function initInteract(cb: InteractCallbacks): () => void {
     addElement(next, false);
   };
 
-  const onScroll = (): void => positionSelected();
-
   const bindCaptureListeners = (): void => {
     for (const t of MOUSE_EVENTS) {
       window.addEventListener(t, blocker as EventListener, { capture: true, passive: false });
@@ -180,8 +184,6 @@ export function initInteract(cb: InteractCallbacks): () => void {
     }
     window.addEventListener('mousemove', onMove as EventListener, true);
     window.addEventListener('pointermove', onMove as EventListener, true);
-    window.addEventListener('scroll', onScroll, true);
-    window.addEventListener('resize', onScroll);
   };
 
   const unbindCaptureListeners = (): void => {
@@ -193,14 +195,12 @@ export function initInteract(cb: InteractCallbacks): () => void {
     }
     window.removeEventListener('mousemove', onMove as EventListener, true);
     window.removeEventListener('pointermove', onMove as EventListener, true);
-    window.removeEventListener('scroll', onScroll, true);
-    window.removeEventListener('resize', onScroll);
-    hoverEl.style.display = 'none';
-    selectedEl.style.display = 'none';
+    setHovered(null);
   };
 
   const reactToEnabled = (): void => {
     const { enabled } = getState();
+    document.documentElement.classList.toggle('__dsai_active__', enabled);
     if (enabled && !bound) {
       bindCaptureListeners();
       bound = true;
@@ -214,7 +214,7 @@ export function initInteract(cb: InteractCallbacks): () => void {
 
   const unsubscribe = subscribe(() => {
     reactToEnabled();
-    positionSelected();
+    syncSelectedFromState();
   });
 
   reactToEnabled();
@@ -228,25 +228,24 @@ export function initInteract(cb: InteractCallbacks): () => void {
     }
     document.removeEventListener('keydown', onKey, true);
     unsubscribe();
-    hoverEl.remove();
-    selectedEl.remove();
+    setHovered(null);
+    setSelected(null);
+    document.documentElement.classList.remove('__dsai_active__');
+    removeOutlineStyle();
     setPanelCollapsed(false);
   };
 }
 
-function makeOverlay(extra: Partial<CSSStyleDeclaration>): HTMLDivElement {
-  const el = document.createElement('div');
-  el.setAttribute('data-dsai-overlay', '');
-  Object.assign(el.style, {
-    position: 'fixed',
-    pointerEvents: 'none',
-    borderRadius: '4px',
-    zIndex: '2147483646',
-    transition: 'all 60ms ease-out',
-    display: 'none',
-  } satisfies Partial<CSSStyleDeclaration>);
-  Object.assign(el.style, extra);
-  return el;
+function injectOutlineStyle(): void {
+  if (document.getElementById(STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = OUTLINE_CSS;
+  document.head.appendChild(style);
+}
+
+function removeOutlineStyle(): void {
+  document.getElementById(STYLE_ID)?.remove();
 }
 
 function pickEl(x: number, y: number): Element | null {
@@ -254,7 +253,6 @@ function pickEl(x: number, y: number): Element | null {
   for (const el of stack) {
     if (el.id === HOST_ID) continue;
     if (el.closest(`#${HOST_ID}`)) continue;
-    if (el.hasAttribute('data-dsai-overlay')) continue;
     if (el.hasAttribute('data-dsai-toolbar')) continue;
     if (el === document.documentElement || el === document.body) continue;
     return el;
