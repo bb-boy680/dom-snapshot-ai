@@ -168,7 +168,9 @@ export function clearAll(): void {
   notify();
 }
 
-export type BusEvent = { type: 'chip-insert-request'; id: string };
+export type BusEvent =
+  | { type: 'chip-insert-request'; id: string }
+  | { type: 'editor-clear' };
 type BusListener = (e: BusEvent) => void;
 const busListeners = new Set<BusListener>();
 

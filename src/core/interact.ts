@@ -1,4 +1,4 @@
-import { addElement, clearAll, getElement, getState, setEnabled, setPanelCollapsed, subscribe } from './store';
+import { addElement, clearAll, emit, getElement, getState, setEnabled, setPanelCollapsed, subscribe } from './store';
 
 export const HOST_ID = '__dom_snapshot_ai_root__';
 
@@ -25,9 +25,9 @@ export function initInteract(cb: InteractCallbacks): () => void {
   let disposed = false;
 
   const positionSelected = (): void => {
-    const id = getState().activeId;
-    const el = id ? getElement(id) : null;
-    if (!el) {
+    const { activeId, enabled } = getState();
+    const el = activeId ? getElement(activeId) : null;
+    if (!el || !enabled) {
       selectedEl.style.display = 'none';
       return;
     }
@@ -62,10 +62,24 @@ export function initInteract(cb: InteractCallbacks): () => void {
     });
   };
 
+  const blurPanelIfFocused = (): void => {
+    // The panel lives in a Shadow DOM, so document.activeElement only sees the
+    // shadow host; the real focused node is under host.shadowRoot.activeElement.
+    const host = document.getElementById(HOST_ID);
+    const root = host?.shadowRoot;
+    const focused = root?.activeElement as HTMLElement | null;
+    if (focused && typeof focused.blur === 'function') focused.blur();
+  };
+
   const blocker = (e: MouseEvent): void => {
     if (isFromPanel(e)) return;
     e.preventDefault();
     e.stopImmediatePropagation();
+    // We just preventDefault'd a mousedown, which normally moves focus away
+    // from whatever was focused. That means a focused contenteditable inside
+    // our panel stays focused forever and keeps eating keystrokes (Space, Esc).
+    // Manually blur it on mousedown so clicking the page exits the editor.
+    if (e.type === 'mousedown') blurPanelIfFocused();
     if (e.type !== 'click') return;
     const el = pickEl(e.clientX, e.clientY);
     if (!el) return;
@@ -75,32 +89,48 @@ export function initInteract(cb: InteractCallbacks): () => void {
   };
 
   const onKey = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape') {
+    const hasMod = e.ctrlKey || e.metaKey || e.altKey;
+    const inEditable = isEditableTarget(e.target);
+
+    // Escape always wins — even when focus is inside the editor — because it's
+    // the user's universal "get me out / clear everything" key. It also blurs
+    // and empties the editor (handled by clearAll callers).
+    if (e.key === 'Escape' && !hasMod) {
+      e.preventDefault();
       clearAll();
+      emit({ type: 'editor-clear' });
       hoverEl.style.display = 'none';
       selectedEl.style.display = 'none';
+      blurPanelIfFocused();
       return;
     }
-    if (e.code === 'Space' && e.target === document.body) {
+
+    // Anything else: if the user is typing in the panel / a host-page input,
+    // let the keystroke pass through unchanged.
+    if (inEditable) return;
+
+    if (e.code === 'Space' && !hasMod) {
       e.preventDefault();
       setEnabled(!getState().enabled);
       return;
     }
+
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown'
         || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
       tryNavigate(e);
     }
   };
 
+  const isEditableTarget = (target: EventTarget | null): boolean => {
+    if (!(target instanceof Element)) return false;
+    if (target.closest(`#${HOST_ID}`)) return true;
+    if (target instanceof HTMLElement && target.isContentEditable) return true;
+    const tag = target.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  };
+
   const tryNavigate = (e: KeyboardEvent): void => {
-    // Bail if focus is inside the panel / overlay or any editable element.
-    const target = e.target as Element | null;
-    if (target instanceof Element) {
-      if (target.closest(`#${HOST_ID}`)) return;
-      if (target instanceof HTMLElement && target.isContentEditable) return;
-      const tag = target.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    }
+    if (isEditableTarget(e.target)) return;
     const id = getState().activeId;
     if (!id) return;
     const cur = getElement(id);

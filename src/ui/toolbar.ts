@@ -18,61 +18,183 @@ const ui: UiState = { popcard: null, activeStyleGroup: 'layout' };
 const TOOLBAR_H = 32;
 const TOOLBAR_GAP = 8;
 
+// Persistent nodes & cached metadata so scroll/resize reposition without
+// rebuilding the DOM (which causes the visible flicker).
+interface MountedToolbar {
+  itemId: string;
+  toolbarEl: HTMLElement;
+  cardEl: HTMLElement | null;
+  cardKind: PopcardKind | null;
+  cardHeight: number; // measured once when the card is first inserted
+}
+
 export function initToolbar(root: ShadowRoot): void {
   const layer = document.createElement('div');
   layer.setAttribute('data-dsai-toolbar', '');
   root.appendChild(layer);
 
+  let mounted: MountedToolbar | null = null;
   let rafId = 0;
-  const reposition = (): void => {
-    if (rafId) cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(() => render(layer));
+
+  const schedule = (): void => {
+    if (rafId) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = 0;
+      render(layer, mountedRef);
+    });
+  };
+
+  // Indirection so the RAF callback always sees the latest mounted ref.
+  const mountedRef = {
+    get: () => mounted,
+    set: (m: MountedToolbar | null) => { mounted = m; },
   };
 
   subscribe((s) => {
     if (!s.activeId) ui.popcard = null;
-    render(layer);
+    schedule();
   });
 
-  window.addEventListener('scroll', reposition, true);
-  window.addEventListener('resize', reposition);
+  window.addEventListener('scroll', schedule, true);
+  window.addEventListener('resize', schedule);
 }
 
-function render(layer: HTMLDivElement): void {
+interface MountedRef {
+  get: () => MountedToolbar | null;
+  set: (m: MountedToolbar | null) => void;
+}
+
+function render(layer: HTMLDivElement, ref: MountedRef): void {
   const s = getState();
   const id = s.activeId;
   const item = id ? s.items.find((it) => it.id === id) ?? null : null;
   const el = id ? getElement(id) : null;
 
-  if (!id || !item || !el || !el.isConnected) {
-    layer.innerHTML = '';
+  if (!s.enabled || !id || !item || !el || !el.isConnected) {
+    layer.replaceChildren();
+    ref.set(null);
     return;
   }
 
   const rect = el.getBoundingClientRect();
   const placeAbove = rect.top >= TOOLBAR_H + TOOLBAR_GAP + 4;
+  let mounted = ref.get();
 
-  layer.innerHTML = '';
-  const toolbar = buildToolbar(item, rect, placeAbove);
-  layer.appendChild(toolbar);
+  // Rebuild only when the selection or card kind changes — never on scroll.
+  const needToolbar = !mounted || mounted.itemId !== id;
+  if (needToolbar) {
+    layer.replaceChildren();
+    const toolbarEl = buildToolbar(item);
+    layer.appendChild(toolbarEl);
+    mounted = { itemId: id, toolbarEl, cardEl: null, cardKind: null, cardHeight: 0 };
+    ref.set(mounted);
+  } else {
+    // Same item, content might have changed (style count, attach state, …).
+    updateToolbarContent(mounted!.toolbarEl, item);
+  }
 
-  if (ui.popcard) {
-    const card = buildPopcard(ui.popcard, item, rect, placeAbove, toolbar);
-    if (card) layer.appendChild(card);
+  // (Re)build the popcard only if the requested kind changed.
+  const wantKind = ui.popcard;
+  if (mounted!.cardKind !== wantKind) {
+    if (mounted!.cardEl) mounted!.cardEl.remove();
+    if (wantKind) {
+      const card = buildPopcardEl(wantKind, item);
+      layer.appendChild(card);
+      // Synchronous measurement — done once, cached. Avoids the second-RAF
+      // jump that caused the popcard to flash at top:0 during scroll.
+      mounted!.cardEl = card;
+      mounted!.cardHeight = card.offsetHeight;
+      mounted!.cardKind = wantKind;
+    } else {
+      mounted!.cardEl = null;
+      mounted!.cardKind = null;
+      mounted!.cardHeight = 0;
+    }
+  } else if (mounted!.cardEl && wantKind) {
+    // Same card kind, content may have changed (style chips, html mode).
+    refreshCardBody(mounted!.cardEl, wantKind, item);
+    mounted!.cardHeight = mounted!.cardEl.offsetHeight;
+  }
+
+  // Layout — runs every frame; cheap because we only mutate top/left.
+  positionToolbar(mounted!.toolbarEl, rect, placeAbove);
+  if (mounted!.cardEl) {
+    const width = wantKind === 'style' ? 480 : 320;
+    positionCard(mounted!.cardEl, rect, width, placeAbove, mounted!.cardHeight);
+    alignArrow(mounted!.cardEl, mounted!.toolbarEl, wantKind!);
   }
 }
 
-function buildToolbar(item: SelectionItem, rect: DOMRect, placeAbove: boolean): HTMLElement {
+function positionToolbar(tb: HTMLElement, rect: DOMRect, placeAbove: boolean): void {
   const top = placeAbove ? rect.top - (TOOLBAR_H + TOOLBAR_GAP) : rect.bottom + TOOLBAR_GAP;
   const left = Math.max(8, rect.left - 2);
+  tb.style.top = `${top}px`;
+  tb.style.left = `${left}px`;
+}
+
+function positionCard(card: HTMLElement, rect: DOMRect, width: number, toolbarAbove: boolean, cardH: number): void {
+  let left = rect.left;
+  const overflow = left + width - window.innerWidth + 12;
+  if (overflow > 0) left -= overflow;
+  card.style.left = `${Math.max(8, left)}px`;
+
+  // Card defaults to below the element; toolbar (if same side) is jumped over.
+  // Falls back to above when below doesn't fit.
+  const tbBelowOffset = toolbarAbove ? 0 : TOOLBAR_H + TOOLBAR_GAP;
+  const tbAboveOffset = toolbarAbove ? TOOLBAR_H + TOOLBAR_GAP : 0;
+  const belowTop = rect.bottom + TOOLBAR_GAP + tbBelowOffset;
+  const aboveTop = rect.top - TOOLBAR_GAP - tbAboveOffset - cardH;
+  const fitsBelow = belowTop + cardH + 8 <= window.innerHeight;
+  const placeBelow = fitsBelow || aboveTop < 8;
+
+  if (placeBelow) {
+    card.classList.remove('arrow-bottom');
+    card.style.top = `${Math.min(window.innerHeight - cardH - 8, belowTop)}px`;
+  } else {
+    card.classList.add('arrow-bottom');
+    card.style.top = `${Math.max(8, aboveTop)}px`;
+  }
+}
+
+function buildToolbar(item: SelectionItem): HTMLElement {
+  const tb = document.createElement('div');
+  tb.className = 'toolbar';
+  // top/left set by positionToolbar() each frame.
+  renderToolbarInner(tb, item);
+
+  tb.addEventListener('click', (e) => {
+    const btn = (e.target as Element | null)?.closest<HTMLButtonElement>('.tb-btn');
+    if (!btn || !tb.contains(btn)) return;
+    e.stopPropagation();
+    const act = btn.dataset.act as 'edit' | 'style' | 'html' | 'attach';
+    if (act === 'attach') {
+      if (item.committed) uncommitItem(item.id);
+      else {
+        commitItem(item.id);
+        emit({ type: 'chip-insert-request', id: item.id });
+      }
+      return;
+    }
+    ui.popcard = ui.popcard === act ? null : act;
+    // Trigger a render via store notify — cheap, hits the same RAF path as scroll.
+    setActive(item.id);
+  });
+  tb.addEventListener('mousedown', (e) => {
+    // Keep editor selection while clicking toolbar buttons.
+    if ((e.target as Element | null)?.closest?.('.tb-btn')) e.preventDefault();
+  });
+
+  return tb;
+}
+
+function updateToolbarContent(tb: HTMLElement, item: SelectionItem): void {
+  renderToolbarInner(tb, item);
+}
+
+function renderToolbarInner(tb: HTMLElement, item: SelectionItem): void {
   const attached = item.committed;
   const styleCount = item.styles.length;
   const styleTotal = getStyleGroups(item.id).reduce((s, g) => s + g.props.length, 0);
-
-  const tb = document.createElement('div');
-  tb.className = 'toolbar';
-  tb.style.top = `${top}px`;
-  tb.style.left = `${left}px`;
   tb.innerHTML = `
     <span class="tb-selector" title="${escapeAttr(item.selector)}">
       <span class="sel-dot${attached ? ' attached' : ''}"></span>${escapeHtml(item.label)}
@@ -90,61 +212,21 @@ function buildToolbar(item: SelectionItem, rect: DOMRect, placeAbove: boolean): 
     <span class="tb-divider"></span>
     <button class="tb-btn tb-attach${attached ? ' is-done' : ''}" data-act="attach">${attached ? '✓ Attached' : '+ Attach'}</button>
   `;
-
-  tb.querySelectorAll<HTMLButtonElement>('.tb-btn').forEach((btn) => {
-    // Prevent the toolbar from stealing focus / collapsing the editor selection
-    // when the user clicks Attach. Without this, the editor blurs and we lose the
-    // caret position before insertChip runs.
-    btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const act = btn.dataset.act as 'edit' | 'style' | 'html' | 'attach';
-      if (act === 'attach') {
-        if (item.committed) uncommitItem(item.id);
-        else {
-          commitItem(item.id);
-          emit({ type: 'chip-insert-request', id: item.id });
-        }
-        return;
-      }
-      ui.popcard = ui.popcard === act ? null : act;
-      render(btn.closest('[data-dsai-toolbar]') as HTMLDivElement);
-    });
-  });
-
-  return tb;
 }
 
-function buildPopcard(
-  kind: PopcardKind,
-  item: SelectionItem,
-  rect: DOMRect,
-  toolbarAbove: boolean,
-  toolbar: HTMLElement,
-): HTMLElement | null {
-  let card: HTMLElement | null = null;
-  if (kind === 'edit') card = buildEditCard(item);
-  else if (kind === 'style') card = buildStyleCard(item);
-  else if (kind === 'html') card = buildHtmlCard(item);
-  if (!card) return null;
-
-  const width = kind === 'style' ? 480 : 320;
-  placeCard(card, rect, width, toolbarAbove);
-  // Align the arrow with the button that opened the card.
-  requestAnimationFrame(() => alignArrow(card, toolbar, kind));
-  return card;
+function buildPopcardEl(kind: PopcardKind, item: SelectionItem): HTMLElement {
+  if (kind === 'edit')  return buildEditCard(item);
+  if (kind === 'style') return buildStyleCard(item);
+  return buildHtmlCard(item);
 }
 
-function placeCard(card: HTMLElement, rect: DOMRect, width: number, toolbarAbove: boolean): void {
-  let left = rect.left;
-  const overflow = left + width - window.innerWidth + 12;
-  if (overflow > 0) left -= overflow;
-  card.style.left = `${Math.max(8, left)}px`;
-
-  const baseTop = toolbarAbove
-    ? rect.bottom + TOOLBAR_GAP
-    : rect.bottom + TOOLBAR_GAP + TOOLBAR_H + TOOLBAR_GAP;
-  card.style.top = `${baseTop}px`;
+function refreshCardBody(card: HTMLElement, kind: PopcardKind, item: SelectionItem): void {
+  const fresh = buildPopcardEl(kind, item);
+  // Move children over so listeners attached to `card` (if any) stay alive,
+  // but in practice listeners are on inner buttons which we rebuild — so we
+  // simply swap the inner DOM.
+  card.replaceChildren(...Array.from(fresh.childNodes));
+  card.className = fresh.className; // preserve from-edit/from-style/from-html marker class
 }
 
 function alignArrow(card: HTMLElement, toolbar: HTMLElement, kind: PopcardKind): void {

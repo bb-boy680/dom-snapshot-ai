@@ -4,6 +4,10 @@ import {
 } from '../core/store';
 import type { SelectionItem, Segment } from '../core/markdown';
 import { buildMarkdown } from '../core/markdown';
+import {
+  applyDockPos, applyPanelPos, makeDockDraggable, makePanelDraggable,
+  readDockPos, readPanelPos,
+} from './draggable';
 
 const SHORTCUTS: Array<[string, string]> = [
   ['Click', 'Select'],
@@ -51,8 +55,7 @@ export function renderPanel(root: ShadowRoot): void {
       // Keep chip meta in sync even while collapsed, so reopening shows current state.
       editor?.syncFromStore(s.items);
       if (chromeEl) { chromeEl.style.display = 'none'; }
-      const count = s.items.filter((it) => it.committed).length;
-      renderDock(count);
+      renderDock();
       renderToast();
       return;
     }
@@ -93,6 +96,11 @@ export function renderPanel(root: ShadowRoot): void {
     `;
     layer.appendChild(chromeEl);
 
+    const titlebar = chromeEl.querySelector<HTMLDivElement>('.panel-titlebar')!;
+    makePanelDraggable(chromeEl, titlebar);
+    // Restore position after layout has measured the panel.
+    requestAnimationFrame(() => applyPanelPos(chromeEl!, readPanelPos()));
+
     const editorEl = chromeEl.querySelector<HTMLDivElement>('.panel-editor')!;
     editor = new EditorController(editorEl);
     editor.mount();
@@ -113,40 +121,54 @@ export function renderPanel(root: ShadowRoot): void {
         () => showToast('error', '复制失败'),
       );
     });
+
+    // Typing in the editor doesn't go through the store, so we have to refresh
+    // the Copy button state ourselves whenever the editor's contents change.
+    editorEl.addEventListener('input', () => {
+      updateFooterCount(getState().items.filter((it) => it.committed).length);
+    });
   }
 
-  function updateFooterCount(n: number): void {
+  // Copy button lights up whenever the editor has *anything* to copy — either
+  // a committed chip OR plain text the user typed.
+  function updateFooterCount(_n: number): void {
     const btn = chromeEl?.querySelector<HTMLButtonElement>('[data-act="copy"]');
     if (!btn) return;
-    btn.textContent = n > 0 ? `Copy Prompt · ${n}` : 'Copy Prompt';
-    btn.disabled = n === 0;
-    btn.classList.toggle('is-ready', n > 0);
+    const ready = editorHasContent();
+    btn.textContent = 'Copy Prompt';
+    btn.disabled = !ready;
+    btn.classList.toggle('is-ready', ready);
   }
 
-  function renderDock(count: number): void {
+  function editorHasContent(): boolean {
+    const el = chromeEl?.querySelector<HTMLDivElement>('.panel-editor');
+    if (!el) return false;
+    // Any chip node → ready. Otherwise check for non-whitespace text.
+    if (el.querySelector('.tag')) return true;
+    return (el.textContent ?? '').trim().length > 0;
+  }
+
+  function renderDock(): void {
     if (!dockEl) {
       dockEl = document.createElement('div');
       dockEl.className = 'dock-wrap';
       dockEl.innerHTML = `
-        <button class="dock-icon" title="展开 DOM Snapshot">
+        <button class="dock-icon" title="启用 DOM Snapshot">
           <svg viewBox="0 0 18 18" fill="none">
             <path d="M3 4.5h12M3 9h12M3 13.5h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
             <circle cx="13.5" cy="13.5" r="2.2" stroke="currentColor" stroke-width="1.4"/>
           </svg>
-          <span class="dock-badge" data-count>0</span>
         </button>
-        <div class="dock-hint">0 个已选 · 点击展开</div>
       `;
       layer.appendChild(dockEl);
-      dockEl.querySelector<HTMLButtonElement>('.dock-icon')!.addEventListener('click', () => {
+      const dockIcon = dockEl.querySelector<HTMLButtonElement>('.dock-icon')!;
+      makeDockDraggable(dockIcon);
+      requestAnimationFrame(() => applyDockPos(dockIcon, readDockPos()));
+      dockIcon.addEventListener('click', () => {
         setPanelCollapsed(false);
         setEnabled(true);
       });
     }
-    const badge = dockEl.querySelector<HTMLElement>('[data-count]')!;
-    badge.textContent = String(count);
-    const hint = dockEl.querySelector<HTMLElement>('.dock-hint')!;
-    hint.textContent = `${count} 个已选 · 点击展开`;
   }
 
   function renderToast(): void {
@@ -166,6 +188,12 @@ export function renderPanel(root: ShadowRoot): void {
     if (e.type === 'chip-insert-request' && editor) {
       const item = getState().items.find((it) => it.id === e.id);
       if (item) editor.insertChip(item);
+      // Chip insertion changes editor content but doesn't notify the store —
+      // refresh the Copy button state ourselves.
+      updateFooterCount(getState().items.filter((it) => it.committed).length);
+    } else if (e.type === 'editor-clear' && editor) {
+      editor.clearAll();
+      updateFooterCount(0);
     }
   });
 }
@@ -232,10 +260,12 @@ class EditorController {
       if (!(tag instanceof HTMLElement)) return;
       const tt = tag.querySelector<HTMLElement>('.tag-tooltip');
       if (!tt) return;
+      // Tooltips default to *above* the chip. Only flip them below when there
+      // genuinely isn't room above — i.e. the chip's top is too close to the
+      // viewport top, not the editor's top (the tooltip can escape the editor).
+      const TOOLTIP_H = 140;
       const chipRect = tag.getBoundingClientRect();
-      const hostRect = this.host.getBoundingClientRect();
-      const TOOLTIP_H = 120;
-      if (chipRect.top - hostRect.top < TOOLTIP_H) {
+      if (chipRect.top < TOOLTIP_H) {
         tt.classList.add('tooltip-below');
       } else {
         tt.classList.remove('tooltip-below');
@@ -282,6 +312,14 @@ class EditorController {
     chip.remove();
     this.chipMap.delete(id);
     removeItem(id);
+  }
+
+  // Hard reset — wipe every chip and any free text the user typed, leaving the
+  // editor empty (placeholder will reappear). Used by the global Esc shortcut.
+  clearAll(): void {
+    this.chipMap.clear();
+    this.savedRange = null;
+    this.host.replaceChildren();
   }
 
   patchChip(item: SelectionItem): void {

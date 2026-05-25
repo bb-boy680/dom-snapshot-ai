@@ -111,7 +111,7 @@ describe('initInteract event blocking', () => {
   });
 });
 
-describe('Space key toggles enabled', () => {
+describe('Space toggles enabled', () => {
   let dispose: () => void;
   let host: HTMLDivElement;
 
@@ -138,6 +138,15 @@ describe('Space key toggles enabled', () => {
     expect(getStoreState().enabled).toBe(false);
   });
 
+  test('Ctrl+Space on body does NOT flip enabled', () => {
+    const e = new KeyboardEvent('keydown', {
+      code: 'Space', ctrlKey: true, bubbles: true, cancelable: true,
+    });
+    Object.defineProperty(e, 'target', { value: document.body });
+    document.dispatchEvent(e);
+    expect(getStoreState().enabled).toBe(true);
+  });
+
   test('Space on input does NOT flip enabled', () => {
     const input = document.createElement('input');
     document.body.appendChild(input);
@@ -147,6 +156,28 @@ describe('Space key toggles enabled', () => {
     Object.defineProperty(e, 'target', { value: input });
     document.dispatchEvent(e);
     expect(getStoreState().enabled).toBe(true);
+    input.remove();
+  });
+
+  test('Escape on body clears selections', () => {
+    setEnabled(true);
+    const e = new KeyboardEvent('keydown', {
+      key: 'Escape', bubbles: true, cancelable: true,
+    });
+    Object.defineProperty(e, 'target', { value: document.body });
+    document.dispatchEvent(e);
+    expect(getStoreState().activeId).toBe(null);
+  });
+
+  test('Escape on input STILL clears (Esc is a universal exit / clear)', () => {
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    const e = new KeyboardEvent('keydown', {
+      key: 'Escape', bubbles: true, cancelable: true,
+    });
+    Object.defineProperty(e, 'target', { value: input });
+    document.dispatchEvent(e);
+    expect(e.defaultPrevented).toBe(true);
     input.remove();
   });
 });

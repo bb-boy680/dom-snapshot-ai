@@ -31,7 +31,9 @@ describe('store.enabled', () => {
 describe('store.bus', () => {
   test('emit notifies onBus subscribers', () => {
     const received: Array<{ type: string; id: string }> = [];
-    const unsub = onBus((e) => received.push({ type: e.type, id: e.id }));
+    const unsub = onBus((e) => {
+      if (e.type === 'chip-insert-request') received.push({ type: e.type, id: e.id });
+    });
     emit({ type: 'chip-insert-request', id: 'sel_1' });
     expect(received).toEqual([{ type: 'chip-insert-request', id: 'sel_1' }]);
     unsub();

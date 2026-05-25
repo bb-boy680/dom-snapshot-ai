@@ -196,25 +196,8 @@
   font-style: italic;
 }
 
-/* Dock hint bubble */
+/* Dock wrapper (icon-only; collapsed = inspection paused) */
 .dock-wrap { display: contents; }
-.dock-hint {
-  position: fixed; right: 58px; top: 50%;
-  transform: translateY(-50%);
-  background: var(--ink); color: #fff;
-  font-size: 11.5px; letter-spacing: -0.08px;
-  padding: 6px 10px; border-radius: 6px;
-  white-space: nowrap; pointer-events: none;
-  opacity: 0; transition: opacity 140ms;
-  z-index: 2147483647;
-}
-.dock-hint::after {
-  content: ""; position: absolute;
-  right: -4px; top: 50%;
-  transform: translateY(-50%) rotate(45deg);
-  width: 8px; height: 8px; background: var(--ink);
-}
-.dock-icon:hover ~ .dock-hint { opacity: 0.92; }
 
 /* Toast error variant */
 .toast.toast-error svg { color: #ff453a; }
@@ -232,8 +215,8 @@
   transition: transform 120ms, background 120ms, color 120ms;
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
 }
-.copy-btn.is-ready { background: var(--surface-chip); color: var(--ink); }
-.copy-btn.is-ready:hover { background: var(--primary); color: #fff; }
+.copy-btn.is-ready { background: var(--primary); color: #fff; }
+.copy-btn.is-ready:hover { background: var(--primary-focus); }
 .copy-btn:not(:disabled):active { transform: scale(0.97); }
 .copy-btn:disabled { cursor: not-allowed; }
 .copy-btn svg { width: 13px; height: 13px; }
@@ -272,14 +255,6 @@
 .dock-icon:hover { background: var(--surface-pearl); padding-right: 4px; }
 .dock-icon:active { transform: translateY(-50%) scale(0.97); }
 .dock-icon svg { width: 18px; height: 18px; }
-.dock-badge {
-  position: absolute; top: -4px; left: -4px;
-  min-width: 16px; height: 16px; padding: 0 4px;
-  background: var(--primary); color: #fff;
-  border-radius: 9999px;
-  font-size: 10px; font-weight: 600; line-height: 16px;
-  text-align: center; box-shadow: 0 0 0 2px var(--canvas);
-}
 
 /* =========================================================
    Selection Toolbar + popcards (mockups/selection-toolbar.html)
@@ -371,6 +346,13 @@
   transform: rotate(45deg);
   top: -6px;
   left: var(--arrow-x, 96px);
+}
+/* When the card sits above its toolbar, the arrow flips to the bottom edge. */
+.popcard.arrow-bottom::before {
+  top: auto; bottom: -6px;
+  border-left: 0; border-top: 0;
+  border-right: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
 }
 
 .popcard-header {
