@@ -28,7 +28,7 @@ interface MountedToolbar {
   cardHeight: number; // measured once when the card is first inserted
 }
 
-export function initToolbar(root: ShadowRoot): void {
+export function initToolbar(root: ShadowRoot): () => void {
   const layer = document.createElement('div');
   layer.setAttribute('data-dsai-toolbar', '');
   root.appendChild(layer);
@@ -50,13 +50,30 @@ export function initToolbar(root: ShadowRoot): void {
     set: (m: MountedToolbar | null) => { mounted = m; },
   };
 
-  subscribe((s) => {
-    if (!s.activeId) ui.popcard = null;
+  let lastActiveId: string | null = null;
+  const unsubscribe = subscribe((s) => {
+    if (s.activeId !== lastActiveId) {
+      // Selection changed (cleared or moved to a different element) — close any
+      // popcard left open from the previous selection.
+      ui.popcard = null;
+      lastActiveId = s.activeId;
+    }
     schedule();
   });
 
   window.addEventListener('scroll', schedule, true);
   window.addEventListener('resize', schedule);
+
+  return () => {
+    unsubscribe();
+    window.removeEventListener('scroll', schedule, true);
+    window.removeEventListener('resize', schedule);
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+    layer.remove();
+    mounted = null;
+    ui.popcard = null;
+  };
 }
 
 interface MountedRef {

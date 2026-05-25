@@ -2,6 +2,7 @@ import css from './styles.css' with { type: 'text' };
 import { renderPanel } from './ui/panel';
 import { initToolbar } from './ui/toolbar';
 import { initInteract } from './core/interact';
+import { clearAll } from './core/store';
 
 const MOUNT_ID = '__dom_snapshot_ai_root__';
 
@@ -18,9 +19,20 @@ function mount(): void {
   style.textContent = css;
   root.appendChild(style);
 
-  renderPanel(root);
-  initToolbar(root);
-  initInteract({ onSelect: () => {} });
+  let teardown = (): void => {};
+
+  const disposePanel = renderPanel(root, () => teardown());
+  const disposeToolbar = initToolbar(root);
+  const disposeInteract = initInteract({ onSelect: () => {} });
+
+  teardown = (): void => {
+    disposeInteract();
+    disposeToolbar();
+    disposePanel();
+    // Wipe selection state so a re-activation starts clean.
+    clearAll();
+    host.remove();
+  };
 }
 
 mount();

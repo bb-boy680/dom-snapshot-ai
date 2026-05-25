@@ -1,6 +1,6 @@
 import {
   getElement, getState, onBus, removeItem, setActive, setEnabled,
-  setPanelCollapsed, setPanelOpen, subscribe, type BusEvent,
+  setPanelCollapsed, subscribe, type BusEvent,
 } from '../core/store';
 import type { SelectionItem, Segment } from '../core/markdown';
 import { buildMarkdown } from '../core/markdown';
@@ -20,7 +20,7 @@ const SHORTCUTS: Array<[string, string]> = [
   ['Esc', 'Clear'],
 ];
 
-export function renderPanel(root: ShadowRoot): void {
+export function renderPanel(root: ShadowRoot, onClose: () => void): () => void {
   const layer = document.createElement('div');
   root.appendChild(layer);
 
@@ -111,7 +111,7 @@ export function renderPanel(root: ShadowRoot): void {
       setEnabled(false);
     });
     chromeEl.querySelector<HTMLButtonElement>('[data-act="close"]')!.addEventListener('click', () => {
-      setPanelOpen(false);
+      onClose();
     });
     chromeEl.querySelector<HTMLButtonElement>('[data-act="copy"]')!.addEventListener('click', () => {
       if (!editor) return;
@@ -184,8 +184,8 @@ export function renderPanel(root: ShadowRoot): void {
     layer.appendChild(t);
   }
 
-  subscribe(repaint);
-  onBus((e: BusEvent) => {
+  const unsubscribeStore = subscribe(repaint);
+  const unsubscribeBus = onBus((e: BusEvent) => {
     if (e.type === 'chip-insert-request' && editor) {
       const item = getState().items.find((it) => it.id === e.id);
       if (item) editor.insertChip(item);
@@ -197,6 +197,15 @@ export function renderPanel(root: ShadowRoot): void {
       updateFooterCount(0);
     }
   });
+
+  return () => {
+    unsubscribeStore();
+    unsubscribeBus();
+    window.clearTimeout(toastTimer);
+    editor?.unmount();
+    editor = null;
+    layer.remove();
+  };
 }
 
 // -----------------------------------------------------------------
