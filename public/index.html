@@ -507,7 +507,7 @@
             <span class="try-dot"></span>
             <div>
               <strong>Try it right here.</strong>
-              <span>Selector 已经在这个页面上运行 — hover 任意元素 → click 选中 → 右下角面板会出现 chip → 按 Copy 复制结构化 prompt。</span>
+              <span>Selector is already active on this page — hover any element above or below, click to select, ⇧ for multi.</span>
             </div>
           </div>
         </div>
@@ -541,18 +541,34 @@
               copied
             </span>
           </div>
-<pre><span class="md-h">## User Prompt</span>
-Make this navbar collapse to a hamburger below 768px.
+<pre><span class="md-h"># Element: <span class="md-tag">&lt;div</span> <span class="md-attr">class</span>=<span class="md-str">"product-card"</span><span class="md-tag">&gt;</span></span>
+- <span class="md-h">URL</span>: /dom-snapshot-ai/
+- <span class="md-h">Source</span>: src/components/Hero.tsx:12
+- <span class="md-h">selector</span>: body &gt; main &gt; section &gt; h1
 
-<span class="md-h">## Selected Element</span>
-<span class="md-tag">&lt;header</span> <span class="md-attr">class</span>=<span class="md-str">"navbar"</span><span class="md-tag">&gt;</span>
+- <span class="md-h">Modification Request</span>:
+<span class="md-muted">```text</span>
+Make the background red.
+<span class="md-muted">```</span>
 
-<span class="md-h">### Computed styles · Layout</span>
-display: flex
-padding: <span class="md-str">16px 24px</span>
-gap: <span class="md-str">32px</span>
+- <span class="md-h">Computed Styles</span>:
+<span class="md-muted">```css</span>
+display: inline-flex;
+padding: <span class="md-str">8px 16px</span>;
+font-size: <span class="md-str">14px</span>;
+color: <span class="md-str">#fff</span>;
+background-color: <span class="md-str">#007bff</span>;
+border-radius: <span class="md-str">4px</span>;
+<span class="md-muted">```</span>
 
-<span class="md-muted">…3 more groups attached</span></pre>
+- <span class="md-h">HTML (Full)</span>:
+<span class="md-muted">```html</span>
+<span class="md-tag">&lt;div</span> <span class="md-attr">class</span>=<span class="md-str">"product-card"</span><span class="md-tag">&gt;</span>
+  <span class="md-tag">&lt;h3&gt;</span>AirPods Pro<span class="md-tag">&lt;/h3&gt;</span>
+  <span class="md-tag">&lt;p</span> <span class="md-attr">class</span>=<span class="md-str">"price"</span><span class="md-tag">&gt;</span>From $269 · 3 colors<span class="md-tag">&lt;/p&gt;</span>
+  <span class="md-tag">&lt;span</span> <span class="md-attr">class</span>=<span class="md-str">"target-btn"</span><span class="md-tag">&gt;</span>Learn more<span class="md-tag">&lt;/span&gt;</span>
+<span class="md-tag">&lt;/div&gt;</span>
+<span class="md-muted">```</span></pre>
         </div>
       </div>
     </article>
