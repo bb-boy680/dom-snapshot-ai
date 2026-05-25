@@ -1,0 +1,349 @@
+
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Selection Toolbar — DOM Snapshot</title>
+<style>
+  :root {
+    --primary: #0066cc;
+    --primary-focus: #0071e3;
+    --ink: #1d1d1f;
+    --ink-muted-80: #333;
+    --ink-muted-48: #7a7a7a;
+    --hairline: #e0e0e0;
+    --divider-soft: #f0f0f0;
+    --canvas: #fff;
+    --canvas-parchment: #f5f5f7;
+    --surface-chip: rgba(0,0,0,0.04);
+    --font-display: 'SF Pro Display', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-text: 'SF Pro Text', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--canvas-parchment); color: var(--ink); font-family: var(--font-text); font-size: 17px; line-height: 1.47; letter-spacing: -0.374px; -webkit-font-smoothing: antialiased; }
+  .page { max-width: 1440px; margin: 0 auto; padding: 80px 48px 120px; }
+  .page-header { margin-bottom: 56px; }
+  .page-header h1 { font-family: var(--font-display); font-size: 40px; font-weight: 600; line-height: 1.1; letter-spacing: -0.28px; margin: 0 0 12px; }
+  .page-header p { font-size: 17px; color: var(--ink-muted-80); margin: 0; max-width: 720px; }
+  .page-meta { margin: 24px 0 0; font-size: 14px; color: var(--ink-muted-48); }
+  .page-meta a { color: var(--primary); text-decoration: none; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 48px; }
+  @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } .page { padding: 48px 24px; } }
+  .state-label { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; font-size: 14px; font-weight: 600; color: var(--ink-muted-80); }
+  .state-label .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
+  .state-label .hint { margin-left: auto; font-weight: 400; color: var(--ink-muted-48); font-family: var(--font-mono); font-size: 12px; }
+  .stage { background: var(--canvas); border: 1px solid var(--hairline); border-radius: 18px; padding: 80px 40px 320px; position: relative; min-height: 520px; }
+  .target { position: relative; background: var(--canvas-parchment); border-radius: 14px; padding: 24px; outline: 2px solid var(--primary); outline-offset: 2px; max-width: 340px; }
+  .target.is-attached { outline-color: #34c759; }
+  .target h3 { font-family: var(--font-display); font-size: 22px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.28px; }
+  .target .price { font-size: 14px; color: var(--ink-muted-80); margin: 0 0 16px; }
+  .target .target-btn { display: inline-flex; align-items: center; background: var(--primary); color: #fff; padding: 7px 18px; border-radius: 9999px; font-size: 13px; font-weight: 500; letter-spacing: -0.224px; }
+  .toolbar { position: absolute; top: -42px; left: -2px; display: inline-flex; align-items: stretch; background: var(--ink); color: #fff; border-radius: 9px; height: 32px; box-shadow: 0 6px 18px rgba(0,0,0,0.20), 0 1px 2px rgba(0,0,0,0.08); overflow: hidden; font-family: var(--font-text); font-size: 13px; white-space: nowrap; }
+  .tb-selector { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; font-family: var(--font-mono); font-size: 12px; color: rgba(255,255,255,0.88); }
+  .tb-selector .sel-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
+  .tb-divider { width: 1px; background: rgba(255,255,255,0.12); margin: 6px 0; }
+  .tb-btn { display: inline-flex; align-items: center; gap: 5px; padding: 0 12px; color: rgba(255,255,255,0.86); background: transparent; border: 0; cursor: pointer; font-family: inherit; font-size: 13px; transition: background 120ms, color 120ms, transform 120ms; }
+  .tb-btn:hover { background: rgba(255,255,255,0.10); color: #fff; }
+  .tb-btn:active { transform: scale(0.97); }
+  .tb-btn.is-active { background: var(--primary); color: #fff; }
+  .tb-btn svg { width: 13px; height: 13px; stroke: currentColor; stroke-width: 1.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .tb-btn-icon { padding: 0 10px; }
+  /* Attached state — Style/HTML tag-style indicator on the toolbar after a snapshot is attached */
+  .tb-btn.is-attached { color: #6ec1ff; }
+  .tb-btn.is-attached::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: #6ec1ff; box-shadow: 0 0 0 2px rgba(110,193,255,0.18); }
+  .tb-btn .tb-sub { color: rgba(255,255,255,0.5); font-family: var(--font-mono); font-size: 11px; margin-left: 4px; }
+  .tb-btn.is-attached .tb-sub { color: rgba(110,193,255,0.7); }
+  .popcard { position: absolute; top: calc(100% + 12px); left: -2px; width: 320px; background: var(--canvas); border: 1px solid var(--hairline); border-radius: 14px; box-shadow: 0 14px 40px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04); overflow: hidden; z-index: 10; }
+  .popcard.from-style { width: 480px; }
+  .popcard::before { content: ""; position: absolute; top: -6px; width: 12px; height: 12px; background: var(--canvas); border-left: 1px solid var(--hairline); border-top: 1px solid var(--hairline); transform: rotate(45deg); }
+  .popcard.from-edit::before  { left: 132px; }
+  .popcard.from-style::before { left: 178px; }
+  .popcard.from-html::before  { left: 232px; }
+  .popcard-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--divider-soft); }
+  .popcard-title { font-size: 11px; font-weight: 600; color: var(--ink-muted-80); text-transform: uppercase; letter-spacing: 0.6px; }
+  .popcard-meta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted-48); }
+  .popcard-link { border: 0; background: transparent; color: var(--primary); font-size: 12px; font-weight: 500; cursor: pointer; padding: 0; }
+  .popcard-link:hover { color: var(--primary-focus); }
+
+  /* Style — two-column: left group list, right property chips */
+  .style-split { display: grid; grid-template-columns: 156px 1fr; min-height: 240px; }
+  .style-groups { border-right: 1px solid var(--divider-soft); padding: 6px; display: flex; flex-direction: column; gap: 2px; background: rgba(0,0,0,0.015); }
+  .style-group { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 7px; cursor: pointer; transition: background 120ms; font-size: 13px; color: var(--ink-muted-80); }
+  .style-group:hover { background: rgba(0,0,0,0.03); color: var(--ink); }
+  .style-group.is-active { background: var(--canvas); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+  .style-group .sg-name { flex: 1; font-weight: 500; }
+  .style-group .sg-count { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-muted-48); padding: 1px 6px; background: var(--surface-chip); border-radius: 9999px; min-width: 28px; text-align: center; }
+  .style-group.is-active .sg-count { background: rgba(0,102,204,0.10); color: var(--primary); }
+  .style-group.has-selection .sg-count { background: var(--primary); color: #fff; }
+
+  .style-props { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; max-height: 280px; overflow-y: auto; }
+  .style-props-head { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--ink-muted-48); }
+  .style-props-head .sp-title { font-weight: 600; color: var(--ink-muted-80); text-transform: uppercase; letter-spacing: 0.6px; }
+  .style-props-head .sp-toggle { border: 0; background: transparent; color: var(--primary); font-size: 11.5px; cursor: pointer; padding: 0; font-weight: 500; }
+  .style-props-head .sp-toggle:hover { color: var(--primary-focus); }
+  .prop-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .prop-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 8px; background: var(--canvas-parchment); border: 1px solid var(--hairline); border-radius: 7px; font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-muted-80); cursor: pointer; transition: background 120ms, border-color 120ms, color 120ms; user-select: none; }
+  .prop-chip:hover { border-color: var(--ink-muted-48); color: var(--ink); }
+  .prop-chip input { appearance: none; -webkit-appearance: none; width: 11px; height: 11px; border-radius: 3px; border: 1.4px solid var(--ink-muted-48); margin: 0; position: relative; cursor: pointer; flex-shrink: 0; }
+  .prop-chip input:checked { background: var(--primary); border-color: var(--primary); }
+  .prop-chip input:checked::after { content: ""; position: absolute; left: 2px; top: 0px; width: 4px; height: 7px; border: solid #fff; border-width: 0 1.6px 1.6px 0; transform: rotate(45deg); }
+  .prop-chip.is-on { background: rgba(0,102,204,0.08); border-color: rgba(0,102,204,0.30); color: var(--primary); }
+  .prop-chip .prop-key { font-weight: 500; }
+  .prop-chip .prop-val { color: var(--ink-muted-48); }
+  .prop-chip.is-on .prop-val { color: var(--primary); opacity: 0.75; }
+  .prop-chip .prop-swatch { width: 9px; height: 9px; border-radius: 2px; border: 1px solid rgba(0,0,0,0.10); }
+
+  .style-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-top: 1px solid var(--divider-soft); background: rgba(0,0,0,0.015); }
+  .style-footer .all-toggle { font-size: 12px; color: var(--ink-muted-80); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .style-footer .all-toggle input { accent-color: var(--primary); }
+  .style-footer .footer-meta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted-48); }
+  .style-footer .add-btn { height: 26px; padding: 0 12px; border: 0; border-radius: 9999px; background: var(--primary); color: #fff; font-family: var(--font-text); font-size: 12px; font-weight: 500; cursor: pointer; transition: background 120ms, transform 120ms; }
+  .style-footer .add-btn:hover { background: var(--primary-focus); }
+  .style-footer .add-btn:active { transform: scale(0.96); }
+  .html-hint { margin: 10px 14px 0; font-size: 11.5px; color: var(--ink-muted-48); line-height: 1.5; }
+  .html-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px 14px 0; }
+  .html-tab { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; background: var(--canvas-parchment); border: 1px solid var(--hairline); border-radius: 8px; cursor: pointer; transition: border-color 120ms, background 120ms; text-align: left; font-family: var(--font-text); }
+  .html-tab:hover { border-color: var(--ink-muted-48); }
+  .html-tab .ht-label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--ink); }
+  .html-tab .ht-label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--ink-muted-48); display: inline-block; flex-shrink: 0; }
+  .html-tab .ht-desc { font-size: 10.5px; color: var(--ink-muted-48); line-height: 1.35; }
+  .html-tab.is-on { background: rgba(0,102,204,0.06); border-color: var(--primary); }
+  .html-tab.is-on .ht-label { color: var(--primary); }
+  .html-tab.is-on .ht-label::before { background: var(--primary); border-color: var(--primary); box-shadow: inset 0 0 0 2px #fff; }
+  .html-tab.is-on .ht-desc { color: var(--primary); opacity: 0.75; }
+  .html-code-wrap { margin: 10px 14px 0; position: relative; }
+  .html-code { padding: 12px; background: var(--canvas-parchment); border-radius: 8px; font-family: var(--font-mono); font-size: 11.5px; color: var(--ink); line-height: 1.6; white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow: auto; margin: 0; }
+  .html-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px 12px; margin-top: 10px; border-top: 1px solid var(--divider-soft); }
+  .html-meta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted-48); }
+  .html-attach { height: 26px; padding: 0 12px; border: 0; border-radius: 9999px; background: var(--primary); color: #fff; font-family: var(--font-text); font-size: 12px; font-weight: 500; cursor: pointer; transition: background 120ms, transform 120ms; }
+  .html-attach:hover { background: var(--primary-focus); }
+  .html-attach:active { transform: scale(0.96); }
+  .html-code .tag { color: var(--primary); }
+  .html-code .attr { color: #b34a00; }
+  .html-code .str { color: #2d8c5e; }
+  .edit-body { padding: 12px 14px; }
+  .edit-body textarea { width: 100%; min-height: 84px; border: 1px solid var(--hairline); border-radius: 8px; padding: 10px 12px; font-family: var(--font-text); font-size: 13.5px; color: var(--ink); line-height: 1.5; resize: vertical; outline: 0; transition: border-color 120ms, box-shadow 120ms; background: var(--canvas); }
+  .edit-body textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,102,204,0.12); }
+  .edit-actions { display: flex; gap: 8px; padding: 0 14px 14px; justify-content: flex-end; }
+  .edit-actions button { height: 30px; padding: 0 14px; border: 0; border-radius: 9999px; font-family: var(--font-text); font-size: 13px; font-weight: 500; cursor: pointer; transition: background 120ms, transform 120ms; }
+  .edit-actions button:active { transform: scale(0.96); }
+  .edit-actions .ghost { background: transparent; color: var(--ink-muted-80); }
+  .edit-actions .ghost:hover { background: var(--surface-chip); }
+  .edit-actions .primary { background: var(--primary); color: #fff; }
+  .edit-actions .primary:hover { background: var(--primary-focus); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="page-header">
+    <h1>Selection — Toolbar &amp; Quick Panels</h1>
+    <p>选中页面元素时，元素顶部贴出一条 ink 黑色 Inspector toolbar：选择器路径 → Edit 图标 → Style / HTML 文字按钮 → 更多。点击对应按钮，元素下方展开一张连体小卡片，分别处理修改意见、样式分组、HTML 切换。</p>
+    <p class="page-meta">侧边悬浮窗见 <a href="index.html">index.html</a> · 注入演示见 <a href="demo.html">demo.html</a></p>
+  </header>
+  <div class="grid">
+    <section><div class="state-label"><span class="dot"></span>选中态 · toolbar 待命<span class="hint">click any tool →</span></div><div class="stage"><div class="target"><div class="toolbar"><span class="tb-selector"><span class="sel-dot"></span>div.product-card</span><span class="tb-divider"></span><button class="tb-btn tb-btn-icon" title="Edit"><svg viewBox="0 0 16 16"><path d="M10.5 2.5l3 3-7 7H3.5v-3l7-7zM9 4l3 3"/></svg></button><span class="tb-divider"></span><button class="tb-btn">Style</button><button class="tb-btn">HTML <span class="tb-sub">Simplified</span></button><span class="tb-divider"></span><button class="tb-btn tb-btn-icon" title="More"><svg viewBox="0 0 16 16" stroke="none" fill="currentColor"><circle cx="3.5" cy="8" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="12.5" cy="8" r="1.2"/></svg></button></div><h3>AirPods Pro</h3><p class="price">从 ¥1,899 起 · 三色可选</p><span class="target-btn">了解更多</span></div></div></section>
+    <section><div class="state-label"><span class="dot" style="background:#34c759"></span>已附加 · tag 高亮<span class="hint">Style + HTML bound to prompt</span></div><div class="stage"><div class="target is-attached"><div class="toolbar"><span class="tb-selector"><span class="sel-dot" style="background:#34c759"></span>div.product-card</span><span class="tb-divider"></span><button class="tb-btn tb-btn-icon" title="Edit"><svg viewBox="0 0 16 16"><path d="M10.5 2.5l3 3-7 7H3.5v-3l7-7zM9 4l3 3"/></svg></button><span class="tb-divider"></span><button class="tb-btn is-attached">Style <span class="tb-sub">3/31</span></button><button class="tb-btn is-attached">HTML <span class="tb-sub">Simplified</span></button><span class="tb-divider"></span><button class="tb-btn tb-btn-icon" title="More"><svg viewBox="0 0 16 16" stroke="none" fill="currentColor"><circle cx="3.5" cy="8" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="12.5" cy="8" r="1.2"/></svg></button></div><h3>AirPods Pro</h3><p class="price">从 ¥1,899 起 · 三色可选</p><span class="target-btn">了解更多</span></div></div></section>
+    <section><div class="state-label"><span class="dot"></span>Edit 展开 · 输入修改意见<span class="hint">→ saved to element</span></div><div class="stage"><div class="target"><div class="toolbar"><span class="tb-selector"><span class="sel-dot"></span>div.product-card</span><span class="tb-divider"></span><button class="tb-btn tb-btn-icon is-active" title="Edit"><svg viewBox="0 0 16 16"><path d="M10.5 2.5l3 3-7 7H3.5v-3l7-7zM9 4l3 3"/></svg></button><span class="tb-divider"></span><button class="tb-btn">Style</button><button class="tb-btn">HTML <span class="tb-sub">Simplified</span></button><span class="tb-divider"></span><button class="tb-btn tb-btn-icon" title="More"><svg viewBox="0 0 16 16" stroke="none" fill="currentColor"><circle cx="3.5" cy="8" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="12.5" cy="8" r="1.2"/></svg></button></div><h3>AirPods Pro</h3><p class="price">从 ¥1,899 起 · 三色可选</p><span class="target-btn">了解更多</span><div class="popcard from-edit"><div class="popcard-header"><span class="popcard-title">Modification</span><span class="popcard-meta">div.product-card</span></div><div class="edit-body"><textarea placeholder="描述你想对这个元素做的改动…">把价格挪到按钮上方，按钮宽度撑满卡片，背景换成深色。</textarea></div><div class="edit-actions"><button class="ghost">Cancel</button><button class="primary">Save</button></div></div></div></div></section>
+    <section><div class="state-label"><span class="dot"></span>Style 展开 · 选择样式分组<span class="hint">2 / 5 selected</span></div><div class="stage"><div class="target"><div class="toolbar"><span class="tb-selector"><span class="sel-dot"></span>div.product-card</span><span class="tb-divider"></span><button class="tb-btn tb-btn-icon" title="Edit"><svg viewBox="0 0 16 16"><path d="M10.5 2.5l3 3-7 7H3.5v-3l7-7zM9 4l3 3"/></svg></button><span class="tb-divider"></span><button class="tb-btn is-active">Style</button><button class="tb-btn">HTML <span class="tb-sub">Simplified</span></button><span class="tb-divider"></span><button class="tb-btn tb-btn-icon" title="More"><svg viewBox="0 0 16 16" stroke="none" fill="currentColor"><circle cx="3.5" cy="8" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="12.5" cy="8" r="1.2"/></svg></button></div><h3>AirPods Pro</h3><p class="price">从 ¥1,899 起 · 三色可选</p><span class="target-btn">了解更多</span><div class="popcard from-style">
+  <div class="popcard-header"><span class="popcard-title">Computed Styles</span><span class="popcard-meta">5 selected</span></div>
+  <div class="style-split">
+    <div class="style-groups">
+      <div class="style-group is-active has-selection" data-group="layout"><span class="sg-name">Layout</span><span class="sg-count">3/7</span></div>
+      <div class="style-group has-selection" data-group="text"><span class="sg-name">Text</span><span class="sg-count">2/6</span></div>
+      <div class="style-group" data-group="bg"><span class="sg-name">Background</span><span class="sg-count">0/5</span></div>
+      <div class="style-group" data-group="border"><span class="sg-name">Border</span><span class="sg-count">0/4</span></div>
+      <div class="style-group" data-group="effects"><span class="sg-name">Effects</span><span class="sg-count">0/4</span></div>
+      <div class="style-group" data-group="other"><span class="sg-name">Other</span><span class="sg-count">0/5</span></div>
+    </div>
+    <div class="style-props">
+      <div class="style-props-head"><span class="sp-title">Layout · 7 properties</span><button class="sp-toggle">Select all</button></div>
+      <div class="prop-chips">
+        <label class="prop-chip is-on"><input type="checkbox" checked><span class="prop-key">display</span><span class="prop-val">flex</span></label>
+        <label class="prop-chip is-on"><input type="checkbox" checked><span class="prop-key">padding</span><span class="prop-val">24px</span></label>
+        <label class="prop-chip is-on"><input type="checkbox" checked><span class="prop-key">gap</span><span class="prop-val">16px</span></label>
+        <label class="prop-chip"><input type="checkbox"><span class="prop-key">width</span><span class="prop-val">340px</span></label>
+        <label class="prop-chip"><input type="checkbox"><span class="prop-key">flex-direction</span><span class="prop-val">column</span></label>
+        <label class="prop-chip"><input type="checkbox"><span class="prop-key">align-items</span><span class="prop-val">flex-start</span></label>
+        <label class="prop-chip"><input type="checkbox"><span class="prop-key">position</span><span class="prop-val">relative</span></label>
+      </div>
+    </div>
+  </div>
+  <div class="style-footer"><label class="all-toggle"><input type="checkbox"> All non-default styles</label><span class="footer-meta">5 / 31 attached</span><button class="add-btn">Attach</button></div>
+</div></div></div></section>
+    <section><div class="state-label"><span class="dot"></span>HTML 展开 · 简化 / 完整切换<span class="hint">Simplified</span></div><div class="stage"><div class="target"><div class="toolbar"><span class="tb-selector"><span class="sel-dot"></span>div.product-card</span><span class="tb-divider"></span><button class="tb-btn tb-btn-icon" title="Edit"><svg viewBox="0 0 16 16"><path d="M10.5 2.5l3 3-7 7H3.5v-3l7-7zM9 4l3 3"/></svg></button><span class="tb-divider"></span><button class="tb-btn">Style</button><button class="tb-btn is-active">HTML <span class="tb-sub">Simplified</span></button><span class="tb-divider"></span><button class="tb-btn tb-btn-icon" title="More"><svg viewBox="0 0 16 16" stroke="none" fill="currentColor"><circle cx="3.5" cy="8" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="12.5" cy="8" r="1.2"/></svg></button></div><h3>AirPods Pro</h3><p class="price">从 ¥1,899 起 · 三色可选</p><span class="target-btn">了解更多</span><div class="popcard from-html"><div class="popcard-header"><span class="popcard-title">HTML Snapshot</span><span class="popcard-meta">div.product-card</span></div><p class="html-hint">选择把哪种 HTML 形式附加到 prompt 里。</p><div class="html-tabs"><button class="html-tab is-on"><span class="ht-label">Simplified</span><span class="ht-desc">仅自身节点 · 不含子元素</span></button><button class="html-tab"><span class="ht-label">Full</span><span class="ht-desc">含所有后代 · 文本截断 100 字</span></button></div><div class="html-code-wrap"><pre class="html-code">&lt;<span class="tag">div</span> <span class="attr">class</span>=<span class="str">"product-card"</span>&gt;&lt;/<span class="tag">div</span>&gt;</pre></div><div class="html-footer"><span class="html-meta">1 行 · 48 字符</span><button class="html-attach">Attach to prompt</button></div></div></div></div></section>
+  </div>
+</div>
+<script>
+  // Per-group property data for the Style popcard
+  const STYLE_DATA = {
+    layout:  { title: 'Layout', props: [
+      { k: 'display', v: 'flex', on: true },
+      { k: 'padding', v: '24px', on: true },
+      { k: 'gap', v: '16px', on: true },
+      { k: 'width', v: '340px' },
+      { k: 'flex-direction', v: 'column' },
+      { k: 'align-items', v: 'flex-start' },
+      { k: 'position', v: 'relative' },
+    ]},
+    text:    { title: 'Text', props: [
+      { k: 'font-size', v: '17px', on: true },
+      { k: 'line-height', v: '1.47', on: true },
+      { k: 'font-weight', v: '400' },
+      { k: 'letter-spacing', v: '-0.374px' },
+      { k: 'color', v: '#1d1d1f', swatch: '#1d1d1f' },
+      { k: 'text-align', v: 'left' },
+    ]},
+    bg:      { title: 'Background', props: [
+      { k: 'background-color', v: '#f5f5f7', swatch: '#f5f5f7' },
+      { k: 'background-image', v: 'none' },
+      { k: 'background-size', v: 'auto' },
+      { k: 'background-position', v: '0% 0%' },
+      { k: 'background-repeat', v: 'repeat' },
+    ]},
+    border:  { title: 'Border', props: [
+      { k: 'border', v: 'none' },
+      { k: 'border-radius', v: '14px' },
+      { k: 'outline', v: '2px solid #0066cc' },
+      { k: 'outline-offset', v: '2px' },
+    ]},
+    effects: { title: 'Effects', props: [
+      { k: 'transform', v: 'none' },
+      { k: 'transition', v: 'none' },
+      { k: 'opacity', v: '1' },
+      { k: 'filter', v: 'none' },
+    ]},
+    other:   { title: 'Other', props: [
+      { k: 'cursor', v: 'default' },
+      { k: 'z-index', v: 'auto' },
+      { k: 'overflow', v: 'visible' },
+      { k: 'pointer-events', v: 'auto' },
+      { k: 'visibility', v: 'visible' },
+    ]},
+  };
+
+  document.querySelectorAll('.stage').forEach(stage => {
+    const tools = stage.querySelectorAll('.tb-btn');
+    tools.forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.preventDefault();
+        if (!btn.classList.contains('tb-btn-icon') || btn.title === 'Edit') {
+          tools.forEach(b => { if (b !== btn && b.title !== 'More') b.classList.remove('is-active'); });
+          btn.classList.toggle('is-active');
+        }
+      });
+    });
+
+    // Style popcard — group switching + prop chip toggling
+    const stylePop = stage.querySelector('.popcard.from-style');
+    if (stylePop) {
+      const groupNodes = stylePop.querySelectorAll('.style-group');
+      const propsHost = stylePop.querySelector('.style-props');
+      // Persistent per-group selection state — keyed by group id, value is a Set of prop keys
+      const selection = {};
+      groupNodes.forEach(g => { selection[g.dataset.group] = new Set(); });
+      // Seed initial selection from the rendered chips of the first active group
+      const activeGroup = stylePop.querySelector('.style-group.is-active');
+      if (activeGroup) {
+        const seedKey = activeGroup.dataset.group;
+        propsHost.querySelectorAll('.prop-chip.is-on .prop-key').forEach(k => {
+          selection[seedKey].add(k.textContent);
+        });
+        // Also seed Text group with its visible selections (since group count says 2/6)
+        selection.text.add('font-size');
+        selection.text.add('line-height');
+      }
+
+      const renderProps = (groupId) => {
+        const data = STYLE_DATA[groupId];
+        if (!data) return;
+        const selected = selection[groupId];
+        propsHost.innerHTML = `
+          <div class="style-props-head">
+            <span class="sp-title">${data.title} · ${data.props.length} properties</span>
+            <button class="sp-toggle">${selected.size === data.props.length ? 'Clear all' : 'Select all'}</button>
+          </div>
+          <div class="prop-chips">
+            ${data.props.map(p => {
+              const isOn = selected.has(p.k);
+              return `<label class="prop-chip${isOn ? ' is-on' : ''}">
+                <input type="checkbox" data-key="${p.k}"${isOn ? ' checked' : ''}>
+                ${p.swatch ? `<span class="prop-swatch" style="background:${p.swatch}"></span>` : ''}
+                <span class="prop-key">${p.k}</span>
+                <span class="prop-val">${p.v}</span>
+              </label>`;
+            }).join('')}
+          </div>`;
+        propsHost.querySelectorAll('.prop-chip input').forEach(cb => {
+          cb.addEventListener('change', () => {
+            const key = cb.dataset.key;
+            if (cb.checked) selection[groupId].add(key);
+            else selection[groupId].delete(key);
+            cb.closest('.prop-chip').classList.toggle('is-on', cb.checked);
+            updateCounts();
+            // Refresh header toggle label
+            const head = propsHost.querySelector('.sp-toggle');
+            if (head) head.textContent = (selection[groupId].size === data.props.length) ? 'Clear all' : 'Select all';
+          });
+        });
+        const toggleAll = propsHost.querySelector('.sp-toggle');
+        toggleAll.addEventListener('click', () => {
+          const allOn = selection[groupId].size === data.props.length;
+          if (allOn) selection[groupId].clear();
+          else data.props.forEach(p => selection[groupId].add(p.k));
+          renderProps(groupId);
+          updateCounts();
+        });
+      };
+
+      const updateCounts = () => {
+        let total = 0;
+        groupNodes.forEach(g => {
+          const id = g.dataset.group;
+          const sel = selection[id].size;
+          const cap = STYLE_DATA[id].props.length;
+          total += sel;
+          const countEl = g.querySelector('.sg-count');
+          countEl.textContent = `${sel}/${cap}`;
+          g.classList.toggle('has-selection', sel > 0);
+        });
+        const meta = stylePop.querySelector('.popcard-header .popcard-meta');
+        if (meta) meta.textContent = `${total} selected`;
+        const footMeta = stylePop.querySelector('.style-footer .footer-meta');
+        if (footMeta) {
+          const cap = Object.values(STYLE_DATA).reduce((s, g) => s + g.props.length, 0);
+          footMeta.textContent = `${total} / ${cap} attached`;
+        }
+      };
+
+      groupNodes.forEach(g => {
+        g.addEventListener('click', () => {
+          groupNodes.forEach(x => x.classList.remove('is-active'));
+          g.classList.add('is-active');
+          renderProps(g.dataset.group);
+        });
+      });
+
+      updateCounts();
+    }
+
+    const htmlPop = stage.querySelector('.popcard.from-html');
+    if (htmlPop) {
+      const tabs = htmlPop.querySelectorAll('.html-tab');
+      const codeEl = htmlPop.querySelector('.html-code');
+      const metaEl = htmlPop.querySelector('.html-meta');
+      const SIMPLIFIED = `&lt;<span class="tag">div</span> <span class="attr">class</span>=<span class="str">"product-card"</span>&gt;&lt;/<span class="tag">div</span>&gt;`;
+      const FULL = `&lt;<span class="tag">div</span> <span class="attr">class</span>=<span class="str">"product-card"</span>&gt;\n  &lt;<span class="tag">h3</span>&gt;AirPods Pro&lt;/<span class="tag">h3</span>&gt;\n  &lt;<span class="tag">p</span> <span class="attr">class</span>=<span class="str">"price"</span>&gt;从 ¥1,899 起 · 三色可选&lt;/<span class="tag">p</span>&gt;\n  &lt;<span class="tag">span</span> <span class="attr">class</span>=<span class="str">"target-btn"</span>&gt;了解更多&lt;/<span class="tag">span</span>&gt;\n&lt;/<span class="tag">div</span>&gt;`;
+      tabs.forEach((tab, i) => tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('is-on'));
+        tab.classList.add('is-on');
+        if (i === 0) { codeEl.innerHTML = SIMPLIFIED; if (metaEl) metaEl.textContent = '1 行 · 48 字符'; }
+        else         { codeEl.innerHTML = FULL;        if (metaEl) metaEl.textContent = '5 行 · 198 字符'; }
+      }));
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DOM Snapshot — Floating Panel States</title>
+<style>
+  :root {
+    --primary: #0066cc;
+    --primary-focus: #0071e3;
+    --ink: #1d1d1f;
+    --ink-muted-80: #333333;
+    --ink-muted-48: #7a7a7a;
+    --hairline: #e0e0e0;
+    --divider-soft: #f0f0f0;
+    --canvas: #ffffff;
+    --canvas-parchment: #f5f5f7;
+    --surface-pearl: #fafafc;
+    --surface-chip: rgba(0, 0, 0, 0.04);
+    --surface-chip-strong: rgba(0, 0, 0, 0.06);
+
+    --font-display: 'SF Pro Display', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-text: 'SF Pro Text', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    background: var(--canvas-parchment);
+    color: var(--ink);
+    font-family: var(--font-text);
+    font-size: 17px;
+    line-height: 1.47;
+    letter-spacing: -0.374px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 80px 48px 120px;
+  }
+
+  .page-header {
+    margin-bottom: 64px;
+  }
+
+  .page-header h1 {
+    font-family: var(--font-display);
+    font-size: 40px;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.28px;
+    margin: 0 0 12px;
+  }
+
+  .page-header p {
+    font-size: 17px;
+    color: var(--ink-muted-80);
+    margin: 0;
+    max-width: 640px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 48px;
+  }
+
+  @media (max-width: 980px) {
+    .grid { grid-template-columns: 1fr; }
+    .page { padding: 48px 24px; }
+  }
+
+  .state-card {
+    background: transparent;
+  }
+
+  .state-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    font-family: var(--font-text);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.224px;
+    color: var(--ink-muted-80);
+  }
+
+  .state-label .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary);
+  }
+
+  .state-stage {
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-radius: 18px;
+    padding: 40px;
+    min-height: 340px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    position: relative;
+    overflow: visible;
+  }
+
+  /* ---------- Floating panel ---------- */
+  .panel {
+    width: 328px;
+    background: var(--canvas);
+    border-radius: 16px;
+    border: 1px solid var(--hairline);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.04),
+      0 12px 36px rgba(0, 0, 0, 0.10);
+    font-family: var(--font-text);
+  }
+
+  .panel-titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--divider-soft);
+  }
+
+  .panel-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.08px;
+  }
+
+  .panel-title .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #34c759;
+  }
+
+  .panel-ctrls {
+    display: flex;
+    gap: 4px;
+  }
+  .panel-ctrls button {
+    width: 22px;
+    height: 22px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ink-muted-48);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 120ms;
+  }
+  .panel-ctrls button:hover { background: var(--surface-chip); color: var(--ink); }
+  .panel-ctrls svg { width: 12px; height: 12px; }
+
+  .panel-shortcuts {
+    padding: 10px 14px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    border-bottom: 1px solid var(--divider-soft);
+  }
+
+  /* Each shortcut is a single rounded chip with key + label inline */
+  .kbd-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 20px;
+    padding: 0 7px 0 5px;
+    background: var(--surface-chip);
+    border-radius: 5px;
+    font-family: var(--font-text);
+    font-size: 11px;
+    color: var(--ink-muted-80);
+    letter-spacing: -0.08px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .kbd {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--ink);
+    line-height: 1;
+  }
+
+  /* Inline editor: tags and text can be interleaved */
+  .panel-editor-wrap {
+    padding: 12px 14px 14px;
+  }
+
+  .panel-editor {
+    width: 100%;
+    min-height: 96px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font-family: var(--font-text);
+    font-size: 14px;
+    line-height: 28px;
+    color: var(--ink);
+    letter-spacing: -0.224px;
+    padding: 0;
+    cursor: text;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  .panel-editor:empty::before {
+    content: attr(data-placeholder);
+    color: var(--ink-muted-48);
+    pointer-events: none;
+  }
+  .panel-editor:focus { outline: 0; }
+
+  /* Inline tag chip — flows with the text, looks like a selected DOM node */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 22px;
+    padding: 0 4px 0 7px;
+    margin: 0 2px;
+    vertical-align: middle;
+    position: relative;
+    top: -1px;
+    background: rgba(0, 102, 204, 0.07);
+    color: var(--primary);
+    border: 1px solid rgba(0, 102, 204, 0.22);
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 1;
+    letter-spacing: -0.08px;
+    white-space: nowrap;
+    user-select: none;
+    cursor: default;
+    box-shadow: 0 1px 0 rgba(0, 102, 204, 0.04);
+    transition: background 120ms, border-color 120ms;
+  }
+  .tag:hover {
+    background: rgba(0, 102, 204, 0.11);
+    border-color: rgba(0, 102, 204, 0.35);
+  }
+  /* Selection indicator — green dot, matches the Inspector toolbar's selector */
+  .tag::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #34c759;
+    flex-shrink: 0;
+  }
+  /* Meta chips — inline mini badges showing what was attached (Style count, HTML form) */
+  .tag-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    height: 16px;
+    padding: 0 5px;
+    background: rgba(0, 102, 204, 0.12);
+    color: var(--primary);
+    border-radius: 3px;
+    font-family: var(--font-text);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1;
+    margin-left: 1px;
+  }
+  .tag-meta svg {
+    width: 8px;
+    height: 8px;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .tag .tag-x {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.55;
+    padding: 0;
+    margin-left: 2px;
+    transition: background 120ms, opacity 120ms;
+  }
+  .tag .tag-x:hover { background: rgba(0, 102, 204, 0.18); opacity: 1; }
+  .tag .tag-x svg { width: 7px; height: 7px; }
+
+  /* Hover tooltip — snapshot preview */
+  .tag-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    width: 260px;
+    background: var(--ink);
+    color: #fff;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-family: var(--font-text);
+    font-size: 11.5px;
+    line-height: 1.5;
+    letter-spacing: -0.08px;
+    text-align: left;
+    white-space: normal;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 140ms, transform 140ms;
+    z-index: 30;
+  }
+  .tag-tooltip::after {
+    content: "";
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 8px;
+    height: 8px;
+    background: var(--ink);
+  }
+  .tag:hover .tag-tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .tt-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 3px 0;
+  }
+  .tt-row + .tt-row { border-top: 1px solid rgba(255, 255, 255, 0.08); }
+  .tt-key {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 10.5px;
+    flex-shrink: 0;
+    min-width: 44px;
+  }
+  .tt-val {
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    word-break: break-all;
+  }
+  .tt-val .tt-pill {
+    display: inline-block;
+    padding: 1px 5px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 3px;
+    font-size: 10px;
+    margin-right: 3px;
+  }
+  .tt-empty {
+    color: rgba(255, 255, 255, 0.4);
+    font-style: italic;
+  }
+
+  .panel-footer {
+    padding: 12px 14px 14px;
+    border-top: 1px solid var(--divider-soft);
+  }
+
+  .copy-btn {
+    width: 100%;
+    height: 36px;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--surface-chip);
+    color: var(--ink-muted-48);
+    font-family: var(--font-text);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.224px;
+    cursor: pointer;
+    transition: transform 120ms, background 120ms, color 120ms;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .copy-btn:not(:disabled):hover {
+    background: var(--primary);
+    color: #fff;
+  }
+  .copy-btn:not(:disabled):active { transform: scale(0.97); }
+  .copy-btn:disabled {
+    cursor: not-allowed;
+  }
+  /* Ready state — has content; subtle ink color hint */
+  .copy-btn.is-ready {
+    background: var(--surface-chip);
+    color: var(--ink);
+  }
+  .copy-btn.is-ready:hover {
+    background: var(--primary);
+    color: #fff;
+  }
+  .copy-btn svg { width: 13px; height: 13px; }
+
+  /* Toast attached to panel */
+  .toast {
+    position: absolute;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: #fff;
+    font-family: var(--font-text);
+    font-size: 13px;
+    letter-spacing: -0.08px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  }
+  .toast svg { width: 13px; height: 13px; color: #34c759; }
+
+  /* Empty hint */
+  .empty-hint {
+    color: var(--ink-muted-48);
+    font-size: 13px;
+    letter-spacing: -0.08px;
+  }
+
+  /* ---------- Collapsed pill (docked to viewport edge) ---------- */
+  .edge-stage {
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-radius: 18px;
+    min-height: 340px;
+    position: relative;
+    overflow: hidden;
+    padding: 0;
+    display: block;
+  }
+
+  /* faux page content to make the edge believable */
+  .edge-stage::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(var(--divider-soft) 1px, transparent 1px) 0 24px / 100% 56px,
+      linear-gradient(180deg, var(--surface-pearl), var(--canvas));
+    opacity: 0.7;
+  }
+  .edge-stage::after {
+    content: "";
+    position: absolute;
+    top: 28px; left: 32px;
+    width: 120px; height: 14px;
+    background: var(--surface-chip);
+    border-radius: 4px;
+  }
+  .edge-faux {
+    position: absolute;
+    left: 32px;
+    top: 64px;
+    right: 80px;
+    display: grid;
+    gap: 12px;
+  }
+  .edge-faux span {
+    height: 10px;
+    background: var(--surface-chip);
+    border-radius: 4px;
+  }
+  .edge-faux span:nth-child(1) { width: 86%; }
+  .edge-faux span:nth-child(2) { width: 72%; }
+  .edge-faux span:nth-child(3) { width: 60%; }
+  .edge-faux span:nth-child(4) { width: 78%; }
+  .edge-faux span:nth-child(5) { width: 46%; }
+
+  /* vertical edge strip — like the browser viewport edge */
+  .edge-strip {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 64px;
+    background: linear-gradient(270deg, rgba(0,0,0,0.04), transparent);
+    pointer-events: none;
+  }
+
+  /* the collapsed icon docked to the right edge */
+  .dock-icon {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 44px;
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-right: 0;
+    border-radius: 12px 0 0 12px;
+    box-shadow: -4px 6px 18px rgba(0, 0, 0, 0.08);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    color: var(--ink);
+    transition: transform 120ms, background 120ms, padding 120ms;
+  }
+  .dock-icon:hover {
+    background: var(--surface-pearl);
+    padding-right: 4px;
+  }
+  .dock-icon:active { transform: translateY(-50%) scale(0.97); }
+  .dock-icon svg { width: 18px; height: 18px; }
+
+  /* count badge sitting on top-left of icon */
+  .dock-badge {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    background: var(--primary);
+    color: #fff;
+    border-radius: 9999px;
+    font-family: var(--font-text);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 16px;
+    text-align: center;
+    box-shadow: 0 0 0 2px var(--canvas);
+  }
+
+  /* status dot when no count */
+  .dock-status {
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    width: 8px;
+    height: 8px;
+    background: #34c759;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--canvas);
+  }
+
+  .dock-hint {
+    position: absolute;
+    right: 58px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--ink);
+    color: #fff;
+    font-size: 11.5px;
+    letter-spacing: -0.08px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0.92;
+  }
+  .dock-hint::after {
+    content: "";
+    position: absolute;
+    right: -4px;
+    top: 50%;
+    transform: translateY(-50%) rotate(45deg);
+    width: 8px;
+    height: 8px;
+    background: var(--ink);
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header class="page-header">
+    <h1>DOM Snapshot — Floating Panel</h1>
+    <p>侧边悬浮窗的四种状态。Apple 设计语言：SF Pro、Action Blue 单色强调、pill 主按钮、hairline 描边、唯一 product-shadow 留给浮窗本体。</p>
+  </header>
+
+  <div class="grid">
+
+    <!-- ============ State 1: empty ============ -->
+    <section class="state-card">
+      <div class="state-label"><span class="dot"></span>空状态 — 还未选中任何元素</div>
+      <div class="state-stage">
+        <div class="panel">
+          <div class="panel-titlebar">
+            <div class="panel-title"><span class="status-dot"></span>Selecting</div>
+            <div class="panel-ctrls">
+              <button title="Minimize"><svg viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+              <button title="Close"><svg viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="3" x2="3" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            </div>
+          </div>
+
+          <div class="panel-shortcuts">
+            <span class="kbd-group"><span class="kbd">Click</span>Select</span>
+            <span class="kbd-group"><span class="kbd">⇧</span>Multi</span>
+            <span class="kbd-group"><span class="kbd">←↑↓→</span>Navigate</span>
+            <span class="kbd-group"><span class="kbd">Space</span>Pause</span>
+            <span class="kbd-group"><span class="kbd">⌘C</span>Copy</span>
+            <span class="kbd-group"><span class="kbd">⌘Z</span>Undo</span>
+            <span class="kbd-group"><span class="kbd">Esc</span>Clear</span>
+          </div>
+
+          <div class="panel-editor-wrap">
+            <div class="panel-editor" contenteditable="true" data-placeholder="点击页面中的元素，DOM tag 会作为 chip 嵌入到这里…"></div>
+          </div>
+
+          <div class="panel-footer">
+            <button class="copy-btn" disabled>Copy Prompt</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ State 2: 1 tag ============ -->
+    <section class="state-card">
+      <div class="state-label"><span class="dot"></span>已选 1 个元素</div>
+      <div class="state-stage">
+        <div class="panel">
+          <div class="panel-titlebar">
+            <div class="panel-title"><span class="status-dot"></span>Selecting</div>
+            <div class="panel-ctrls">
+              <button title="Minimize"><svg viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+              <button title="Close"><svg viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="3" x2="3" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            </div>
+          </div>
+
+          <div class="panel-shortcuts">
+            <span class="kbd-group"><span class="kbd">Click</span>Select</span>
+            <span class="kbd-group"><span class="kbd">⇧</span>Multi</span>
+            <span class="kbd-group"><span class="kbd">←↑↓→</span>Navigate</span>
+            <span class="kbd-group"><span class="kbd">Space</span>Pause</span>
+            <span class="kbd-group"><span class="kbd">⌘C</span>Copy</span>
+            <span class="kbd-group"><span class="kbd">⌘Z</span>Undo</span>
+            <span class="kbd-group"><span class="kbd">Esc</span>Clear</span>
+          </div>
+
+          <div class="panel-editor-wrap">
+            <div class="panel-editor" contenteditable="true">把<span class="tag" contenteditable="false">header.nav<span class="tag-meta" title="Style 已勾选 5 个属性"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>5</span><span class="tag-meta" title="HTML Simplified">HTML·S</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">header.nav</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Layout 3</span><span class="tt-pill">Text 2</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Simplified · 1 line</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val tt-empty">无修改意见</span></div></span></span>在窗口缩小时切换成汉堡菜单，移动端高度变为 56px。</div>
+          </div>
+
+          <div class="panel-footer">
+            <button class="copy-btn is-ready">
+              Copy Prompt
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ State 3: many tags ============ -->
+    <section class="state-card">
+      <div class="state-label"><span class="dot"></span>已选多个元素</div>
+      <div class="state-stage">
+        <div class="panel">
+          <div class="panel-titlebar">
+            <div class="panel-title"><span class="status-dot"></span>Selecting</div>
+            <div class="panel-ctrls">
+              <button title="Minimize"><svg viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+              <button title="Close"><svg viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="3" x2="3" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            </div>
+          </div>
+
+          <div class="panel-shortcuts">
+            <span class="kbd-group"><span class="kbd">Click</span>Select</span>
+            <span class="kbd-group"><span class="kbd">⇧</span>Multi</span>
+            <span class="kbd-group"><span class="kbd">←↑↓→</span>Navigate</span>
+            <span class="kbd-group"><span class="kbd">Space</span>Pause</span>
+            <span class="kbd-group"><span class="kbd">⌘C</span>Copy</span>
+            <span class="kbd-group"><span class="kbd">⌘Z</span>Undo</span>
+            <span class="kbd-group"><span class="kbd">Esc</span>Clear</span>
+          </div>
+
+          <div class="panel-editor-wrap">
+            <div class="panel-editor" contenteditable="true">把<span class="tag" contenteditable="false">div#hero<span class="tag-meta" title="Style 已勾选 8 个属性"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>8</span><span class="tag-meta" title="HTML Full">HTML·F</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">div#hero</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Layout 4</span><span class="tt-pill">Bg 3</span><span class="tt-pill">Text 1</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Full · 48 lines · 1.2KB</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val">整体改为深色模式</span></div></span></span>整体改成深色：背景 #0a0a0a，主文本 #f5f5f7。<br><br><span class="tag" contenteditable="false">h1.title<span class="tag-meta" title="Style 已勾选 3 个属性"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>3</span><span class="tag-meta" title="HTML Simplified">HTML·S</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">h1.title</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Text 3</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Simplified · 1 line</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val tt-empty">无修改意见</span></div></span></span>字号放大到 64px，行高 1.05；<span class="tag" contenteditable="false">button.cta-primary<span class="tag-meta" title="未选 Style"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>0</span><span class="tag-meta" title="HTML Simplified">HTML·S</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">button.cta-primary</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val tt-empty">未勾选任何属性</span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Simplified · 1 line</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val">保持不变</span></div></span></span>保持 Action Blue 不变。<br><br>把<span class="tag" contenteditable="false">ul.feature-list<span class="tag-meta" title="Style 已勾选 6 个属性"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>6</span><span class="tag-meta" title="HTML Full">HTML·F</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">ul.feature-list</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Layout 4</span><span class="tt-pill">Text 2</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Full · 23 lines · 612B</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val">改为三列网格</span></div></span></span>换成三列网格，最后<span class="tag" contenteditable="false">footer.site-foot<span class="tag-meta" title="Style 已勾选 2 个属性"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>2</span><span class="tag-meta" title="HTML Simplified">HTML·S</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">footer.site-foot</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Border 2</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Simplified · 1 line</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val tt-empty">无修改意见</span></div></span></span>加 1px hairline 上边。</div>
+          </div>
+
+          <div class="panel-footer">
+            <button class="copy-btn is-ready">
+              Copy Prompt
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ State 4: copied toast ============ -->
+    <section class="state-card">
+      <div class="state-label"><span class="dot"></span>复制成功</div>
+      <div class="state-stage">
+        <div class="panel">
+          <div class="panel-titlebar">
+            <div class="panel-title"><span class="status-dot"></span>Selecting</div>
+            <div class="panel-ctrls">
+              <button title="Minimize"><svg viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+              <button title="Close"><svg viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="9" y1="3" x2="3" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+            </div>
+          </div>
+
+          <div class="panel-shortcuts">
+            <span class="kbd-group"><span class="kbd">Click</span>Select</span>
+            <span class="kbd-group"><span class="kbd">⇧</span>Multi</span>
+            <span class="kbd-group"><span class="kbd">←↑↓→</span>Navigate</span>
+            <span class="kbd-group"><span class="kbd">Space</span>Pause</span>
+            <span class="kbd-group"><span class="kbd">⌘C</span>Copy</span>
+            <span class="kbd-group"><span class="kbd">⌘Z</span>Undo</span>
+            <span class="kbd-group"><span class="kbd">Esc</span>Clear</span>
+          </div>
+
+          <div class="panel-editor-wrap">
+            <div class="panel-editor" contenteditable="true">把<span class="tag" contenteditable="false">section.pricing<span class="tag-meta" title="Style 已勾选 4 个属性"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>4</span><span class="tag-meta" title="HTML Simplified">HTML·S</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">section.pricing</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Layout 4</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Simplified · 1 line</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val tt-empty">无修改意见</span></div></span></span>里的<span class="tag" contenteditable="false">div.plan-card<span class="tag-meta" title="Style 已勾选 7 个属性"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>7</span><span class="tag-meta" title="HTML Full">HTML·F</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">div.plan-card</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Layout 3</span><span class="tt-pill">Border 2</span><span class="tt-pill">Text 2</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Full · 34 lines · 892B</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val">三列等宽，推荐档高亮</span></div></span></span>改成三列等宽，推荐档加 Action Blue 边框。</div>
+          </div>
+
+          <div class="panel-footer">
+            <button class="copy-btn is-ready">
+              Copy Prompt
+            </button>
+          </div>
+        </div>
+
+        <div class="toast">
+          <svg viewBox="0 0 12 12" fill="none"><path d="M2.5 6.5l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          已复制到剪贴板
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ State 5: collapsed / docked icon ============ -->
+    <section class="state-card">
+      <div class="state-label"><span class="dot"></span>折叠态 — 收起到浏览器侧边</div>
+      <div class="edge-stage">
+        <div class="edge-faux">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="edge-strip"></div>
+
+        <button class="dock-icon" title="展开 DOM Snapshot">
+          <svg viewBox="0 0 18 18" fill="none">
+            <path d="M3 4.5h12M3 9h12M3 13.5h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <circle cx="13.5" cy="13.5" r="2.2" stroke="currentColor" stroke-width="1.4"/>
+          </svg>
+          <span class="dock-badge">3</span>
+        </button>
+
+        <div class="dock-hint">3 个已选 · 点击展开</div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Selector — Point at any element. Tell your AI what to change.</title>
+<style>
+  :root {
+    --primary: #0066cc;
+    --primary-focus: #0071e3;
+    --primary-soft: rgba(0,102,204,0.08);
+    --primary-edge: rgba(0,102,204,0.22);
+    --ink: #1d1d1f;
+    --ink-muted-80: #333;
+    --ink-muted-48: #7a7a7a;
+    --ink-muted-30: #bdbdbd;
+    --hairline: #e0e0e0;
+    --divider-soft: #f0f0f0;
+    --canvas: #fff;
+    --canvas-parchment: #f5f5f7;
+    --surface-chip: rgba(0,0,0,0.04);
+    --green: #34c759;
+    --font-display: 'SF Pro Display', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-text: 'SF Pro Text', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-text);
+    font-size: 17px;
+    line-height: 1.47;
+    letter-spacing: -0.374px;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  /* ─── top bar ─── */
+  .topbar {
+    position: sticky; top: 0; z-index: 10;
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    background: rgba(255,255,255,0.72);
+    border-bottom: 1px solid var(--divider-soft);
+  }
+  .topbar-inner {
+    max-width: 1080px; margin: 0 auto;
+    padding: 14px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .brand {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-display);
+    font-size: 15px; font-weight: 600;
+    letter-spacing: -0.224px;
+  }
+  .brand .live-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green);
+    position: relative;
+  }
+  .brand .live-dot::after {
+    content: ""; position: absolute; inset: -3px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(52,199,89,0.35);
+    animation: pulse 2.4s ease-out infinite;
+  }
+  @keyframes pulse {
+    0%   { transform: scale(0.6); opacity: 0.9; }
+    100% { transform: scale(1.8); opacity: 0; }
+  }
+  .topnav { display: inline-flex; gap: 24px; font-size: 13.5px; color: var(--ink-muted-80); }
+  .topnav a { transition: color 120ms; }
+  .topnav a:hover { color: var(--primary); }
+
+  /* ─── shell ─── */
+  .shell { max-width: 760px; margin: 0 auto; padding: 96px 32px 64px; }
+
+  /* ─── hero ─── */
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 1.6px; text-transform: uppercase;
+    color: var(--ink-muted-48);
+    margin-bottom: 28px;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+  .hero-title {
+    font-family: var(--font-display);
+    font-size: 88px; font-weight: 600; line-height: 0.95;
+    letter-spacing: -0.04em;
+    margin: 0 0 24px;
+    position: relative;
+    display: inline-block;
+    padding: 6px 12px;
+    margin-left: -12px;
+  }
+  /* the title itself looks "selected" — 致敬工具本身 */
+  .hero-title::before {
+    content: "";
+    position: absolute; inset: 0;
+    border: 2px solid var(--primary);
+    border-radius: 4px;
+    pointer-events: none;
+    opacity: 0.85;
+  }
+  .hero-title::after {
+    content: "h1.selector";
+    position: absolute;
+    top: -28px; left: -2px;
+    background: var(--ink);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 11px; font-weight: 400;
+    letter-spacing: 0;
+    padding: 3px 8px;
+    border-radius: 4px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+
+  .tagline {
+    font-family: var(--font-display);
+    font-size: 24px; font-weight: 400;
+    line-height: 1.3; letter-spacing: -0.32px;
+    color: var(--ink-muted-80);
+    max-width: 540px;
+    margin: 36px 0 0;
+  }
+  .tagline em {
+    font-style: normal;
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* ─── divider ─── */
+  .rule {
+    height: 1px; background: var(--divider-soft);
+    margin: 88px 0 64px;
+  }
+  .section-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 1.6px; text-transform: uppercase;
+    color: var(--ink-muted-48);
+    margin-bottom: 12px;
+  }
+  .section-eyebrow .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--primary); }
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 32px; font-weight: 600;
+    letter-spacing: -0.28px;
+    margin: 0 0 48px;
+  }
+
+  /* ─── steps ─── */
+  .steps {
+    display: flex; flex-direction: column;
+    gap: 56px;
+  }
+  .step {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+  .step-num {
+    font-family: var(--font-mono);
+    font-size: 13px; font-weight: 500;
+    color: var(--ink-muted-48);
+    padding-top: 4px;
+  }
+  .step-body h3 {
+    font-family: var(--font-display);
+    font-size: 22px; font-weight: 600;
+    letter-spacing: -0.28px;
+    margin: 0 0 16px;
+  }
+  .step-body p {
+    margin: 12px 0 0;
+    color: var(--ink-muted-80);
+    font-size: 15.5px; line-height: 1.55;
+  }
+  .step-body p code, .step-body p kbd {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    background: var(--surface-chip);
+    color: var(--ink);
+    padding: 2px 6px; border-radius: 4px;
+    border: 0;
+  }
+  .step-body .hint {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--ink-muted-48);
+    margin-top: 14px;
+    letter-spacing: 0.2px;
+  }
+
+  /* the bookmarklet — draggable pill */
+  .bookmarklet {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--canvas);
+    color: var(--ink);
+    border: 1px solid var(--hairline);
+    border-radius: 9999px;
+    padding: 10px 22px;
+    font-family: var(--font-display);
+    font-size: 14px; font-weight: 600;
+    letter-spacing: -0.224px;
+    cursor: grab;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 6px 18px rgba(0,0,0,0.06);
+    transition: transform 160ms, box-shadow 160ms, border-color 160ms;
+    user-select: none;
+  }
+  .bookmarklet:hover {
+    border-color: var(--primary-edge);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 10px 24px rgba(0,102,204,0.12);
+    transform: translateY(-1px);
+  }
+  .bookmarklet:active { cursor: grabbing; transform: scale(0.97); }
+  .bookmarklet .b-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--primary);
+  }
+
+  /* prompt preview (under step 03) */
+  .prompt-card {
+    margin-top: 22px;
+    background: var(--canvas-parchment);
+    border: 1px solid var(--divider-soft);
+    border-radius: 10px;
+    padding: 16px 18px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--ink-muted-80);
+    overflow: hidden;
+    position: relative;
+  }
+  .prompt-card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+    font-size: 10.5px;
+    color: var(--ink-muted-48);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+  .prompt-card-head .copied {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--green);
+  }
+  .prompt-card-head .copied svg { width: 10px; height: 10px; }
+  .prompt-card pre {
+    margin: 0;
+    font-family: inherit;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .prompt-card .md-h { color: var(--ink); font-weight: 600; }
+  .prompt-card .md-tag { color: var(--primary); }
+  .prompt-card .md-attr { color: #b34a00; }
+  .prompt-card .md-str { color: #2d8c5e; }
+  .prompt-card .md-muted { color: var(--ink-muted-48); }
+
+  /* ─── try-it banner (step 02) ─── */
+  .try-banner {
+    margin-top: 22px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+    background: linear-gradient(180deg, rgba(0,102,204,0.04), rgba(0,102,204,0.02));
+    border: 1px solid var(--primary-edge);
+    border-radius: 12px;
+  }
+  .try-banner-l {
+    display: flex; align-items: flex-start; gap: 12px;
+    font-size: 13.5px; color: var(--ink-muted-80); line-height: 1.5;
+  }
+  .try-banner-l strong { color: var(--ink); font-weight: 600; display: block; font-size: 14px; margin-bottom: 2px; font-family: var(--font-display); letter-spacing: -0.224px; }
+  .try-banner-l kbd {
+    font-family: var(--font-mono); font-size: 11px;
+    background: var(--surface-chip); padding: 1px 5px; border-radius: 4px;
+    margin: 0 2px;
+  }
+  .try-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--green);
+    margin-top: 5px;
+    position: relative; flex-shrink: 0;
+  }
+  .try-dot::after {
+    content: ""; position: absolute; inset: -4px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(52,199,89,0.35);
+    animation: pulse 2.4s ease-out infinite;
+  }
+  .try-banner-r {
+    background: var(--canvas); color: var(--ink-muted-80);
+    border: 1px solid var(--hairline);
+    border-radius: 9999px;
+    padding: 6px 14px;
+    font-family: var(--font-text); font-size: 12.5px; font-weight: 500;
+    cursor: pointer; flex-shrink: 0;
+    transition: border-color 120ms, color 120ms, transform 120ms;
+  }
+  .try-banner-r:hover { border-color: var(--primary-edge); color: var(--primary); }
+  .try-banner-r:active { transform: scale(0.97); }
+
+  /* ─── apps strip ─── */
+  .apps {
+    margin-top: 20px;
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .app-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 26px; padding: 0 11px;
+    background: var(--surface-chip);
+    border-radius: 9999px;
+    font-size: 12.5px;
+    color: var(--ink);
+    font-family: var(--font-text);
+    font-weight: 500;
+  }
+  .app-chip .ac-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ink-muted-48); }
+  .app-chip:nth-child(1) .ac-dot { background: var(--primary); }
+  .app-chip:nth-child(2) .ac-dot { background: #b34a00; }
+  .app-chip:nth-child(3) .ac-dot { background: var(--green); }
+  .app-chip:nth-child(4) .ac-dot { background: #8e44ad; }
+
+  @media (max-width: 720px) {
+    .try-banner { flex-direction: column; align-items: flex-start; }
+  }
+
+  /* ─── quick reference ─── */
+  .quickref {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border-top: 1px solid var(--divider-soft);
+    border-bottom: 1px solid var(--divider-soft);
+  }
+  .qr-cell {
+    padding: 22px 0;
+    border-right: 1px solid var(--divider-soft);
+    padding-right: 24px;
+  }
+  .qr-cell:nth-child(even) { border-right: 0; padding-left: 24px; padding-right: 0; }
+  .qr-cell:nth-child(odd):not(:first-child),
+  .qr-cell:nth-child(even):not(:nth-child(2)) {
+    border-top: 1px solid var(--divider-soft);
+    margin-top: -1px;
+  }
+  .qr-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-muted-48);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .qr-keys { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  .qr-key {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 24px; height: 24px; padding: 0 7px;
+    background: var(--surface-chip);
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: 11.5px; font-weight: 500;
+    color: var(--ink);
+  }
+  .qr-desc {
+    font-size: 14px; color: var(--ink); margin-top: 6px;
+  }
+
+  /* ─── explore links ─── */
+  .explore {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 40px;
+  }
+  .explore-card {
+    display: block;
+    padding: 20px 22px;
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    background: var(--canvas);
+    transition: border-color 160ms, transform 160ms, box-shadow 160ms;
+  }
+  .explore-card:hover {
+    border-color: var(--primary-edge);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 12px 28px rgba(0,102,204,0.10);
+    transform: translateY(-1px);
+  }
+  .explore-card:active { transform: scale(0.99); }
+  .explore-card h4 {
+    margin: 0 0 6px;
+    font-family: var(--font-display);
+    font-size: 16px; font-weight: 600;
+    letter-spacing: -0.224px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .explore-card h4 .arrow {
+    color: var(--ink-muted-30);
+    font-family: var(--font-mono);
+    transition: color 160ms, transform 160ms;
+  }
+  .explore-card:hover h4 .arrow { color: var(--primary); transform: translateX(2px); }
+  .explore-card p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--ink-muted-80);
+    line-height: 1.5;
+  }
+
+  /* ─── footer ─── */
+  footer {
+    max-width: 760px; margin: 0 auto;
+    padding: 64px 32px 96px;
+    border-top: 1px solid var(--divider-soft);
+    margin-top: 96px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px; color: var(--ink-muted-48);
+  }
+  footer a { color: var(--ink-muted-80); transition: color 120ms; }
+  footer a:hover { color: var(--primary); }
+  footer .footnote { font-family: var(--font-mono); font-size: 11.5px; }
+
+  /* ─── responsive ─── */
+  @media (max-width: 720px) {
+    .shell { padding: 64px 24px 48px; }
+    .hero-title { font-size: 64px; }
+    .hero-title::after { font-size: 10px; top: -24px; }
+    .tagline { font-size: 20px; }
+    .step { grid-template-columns: 40px 1fr; gap: 20px; }
+    .quickref { grid-template-columns: 1fr; }
+    .qr-cell { border-right: 0 !important; padding-left: 0 !important; padding-right: 0 !important; border-bottom: 1px solid var(--divider-soft); }
+    .qr-cell:last-child { border-bottom: 0; }
+    .explore { grid-template-columns: 1fr; }
+    footer { flex-direction: column; gap: 16px; align-items: flex-start; padding: 48px 24px 64px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="./index.html">
+      <span class="live-dot"></span>
+      Selector
+    </a>
+    <nav class="topnav">
+      <a href="#install">Install</a>
+      <a href="#" aria-label="GitHub">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="shell">
+
+  <!-- Hero -->
+  <section>
+    <div class="eyebrow"><span class="dot"></span>Install</div>
+    <h1 class="hero-title">Selector</h1>
+    <p class="tagline">
+      Point at any element. <em>Tell your AI what to change.</em>
+    </p>
+  </section>
+
+  <!-- Steps -->
+  <div class="rule" id="install"></div>
+  <div class="section-eyebrow"><span class="dot"></span>Three steps</div>
+  <h2 class="section-title">Set up once. Use anywhere.</h2>
+
+  <section class="steps">
+
+    <article class="step">
+      <span class="step-num">01</span>
+      <div class="step-body">
+        <h3>Drag to bookmarks bar</h3>
+        <a class="bookmarklet"
+           draggable="true"
+           title="Drag me to your browser's bookmarks bar"
+           href="{{BOOKMARKLET_HREF}}">
+          <span class="b-dot"></span>
+          Selector
+        </a>
+        <p class="hint">one-time setup · ~6 KB · zero install</p>
+      </div>
+    </article>
+
+    <article class="step">
+      <span class="step-num">02</span>
+      <div class="step-body">
+        <h3>Click the bookmark on any page</h3>
+        <p>
+          A floating panel slides in. Hover any element to highlight,
+          click to select. Works on <code>localhost</code>, staging URLs,
+          React, Next.js, Vue, Svelte, and any production site.
+        </p>
+
+        <div class="try-banner" id="tryBanner">
+          <div class="try-banner-l">
+            <span class="try-dot"></span>
+            <div>
+              <strong>Try it right here.</strong>
+              <span>Selector 已经在这个页面上运行 — hover 任意元素 → click 选中 → 右下角面板会出现 chip → 按 Copy 复制结构化 prompt。</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="apps">
+          <span class="app-chip"><span class="ac-dot"></span>localhost</span>
+          <span class="app-chip"><span class="ac-dot"></span>React</span>
+          <span class="app-chip"><span class="ac-dot"></span>Next.js</span>
+          <span class="app-chip"><span class="ac-dot"></span>any URL</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="step">
+      <span class="step-num">03</span>
+      <div class="step-body">
+        <h3>Select → Copy → Paste into your AI</h3>
+        <p>
+          <kbd>⌘ C</kbd> copies a structured prompt — selector path,
+          computed styles, and your written request — straight to the clipboard.
+          Paste into Claude Code, Codex, Cursor, or any chat-based assistant.
+        </p>
+
+        <div class="prompt-card" aria-label="Prompt preview">
+          <div class="prompt-card-head">
+            <span>Clipboard · markdown</span>
+            <span class="copied">
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="2.5 6.5 4.8 8.8 9.5 3.5"/>
+              </svg>
+              copied
+            </span>
+          </div>
+<pre><span class="md-h">## User Prompt</span>
+Make this navbar collapse to a hamburger below 768px.
+
+<span class="md-h">## Selected Element</span>
+<span class="md-tag">&lt;header</span> <span class="md-attr">class</span>=<span class="md-str">"navbar"</span><span class="md-tag">&gt;</span>
+
+<span class="md-h">### Computed styles · Layout</span>
+display: flex
+padding: <span class="md-str">16px 24px</span>
+gap: <span class="md-str">32px</span>
+
+<span class="md-muted">…3 more groups attached</span></pre>
+        </div>
+      </div>
+    </article>
+
+  </section>
+
+  <!-- Quick reference -->
+  <div class="rule"></div>
+  <div class="section-eyebrow"><span class="dot"></span>Reference</div>
+  <h2 class="section-title">Keyboard moves to remember.</h2>
+
+  <section class="quickref">
+    <div class="qr-cell">
+      <div class="qr-label">Select</div>
+      <div class="qr-keys">
+        <span class="qr-key">Click</span>
+      </div>
+      <div class="qr-desc">Pick the element under the cursor.</div>
+    </div>
+    <div class="qr-cell">
+      <div class="qr-label">Multi-select</div>
+      <div class="qr-keys">
+        <span class="qr-key">⇧</span><span class="qr-key">Click</span>
+      </div>
+      <div class="qr-desc">Add another element to the prompt.</div>
+    </div>
+    <div class="qr-cell">
+      <div class="qr-label">Navigate DOM</div>
+      <div class="qr-keys">
+        <span class="qr-key">←</span><span class="qr-key">↑</span><span class="qr-key">↓</span><span class="qr-key">→</span>
+      </div>
+      <div class="qr-desc">Walk to parent, child, sibling.</div>
+    </div>
+    <div class="qr-cell">
+      <div class="qr-label">Pause / Resume</div>
+      <div class="qr-keys">
+        <span class="qr-key">Space</span>
+      </div>
+      <div class="qr-desc">Freeze hover so you can interact with the page.</div>
+    </div>
+    <div class="qr-cell">
+      <div class="qr-label">Copy prompt</div>
+      <div class="qr-keys">
+        <span class="qr-key">⌘</span><span class="qr-key">C</span>
+      </div>
+      <div class="qr-desc">Send the structured prompt to the clipboard.</div>
+    </div>
+    <div class="qr-cell">
+      <div class="qr-label">Clear / Exit</div>
+      <div class="qr-keys">
+        <span class="qr-key">Esc</span>
+      </div>
+      <div class="qr-desc">Drop all selections, leave the page untouched.</div>
+    </div>
+  </section>
+
+  <!-- Explore -->
+  <div class="rule"></div>
+  <div class="section-eyebrow"><span class="dot"></span>Source</div>
+  <h2 class="section-title">Open source. Self-hosted.</h2>
+
+  <section class="explore">
+    <a class="explore-card" href="#" aria-label="GitHub">
+      <h4>View on GitHub <span class="arrow">→</span></h4>
+      <p>Bookmarklet source, build scripts, and full mockup gallery — all in one repo.</p>
+    </a>
+    <a class="explore-card" href="#install">
+      <h4>Install again <span class="arrow">↑</span></h4>
+      <p>Drag the Selector button to your bookmarks bar — works on any URL without a server.</p>
+    </a>
+  </section>
+
+</main>
+
+<footer>
+  <span class="footnote">© 2026 · Selector · open source bookmarklet</span>
+  <span>
+    <a href="#" style="margin-right: 20px;">GitHub</a>
+    <a href="README.md">README</a>
+  </span>
+</footer>
+
+<!-- ─── real Selector — auto-injected on the landing page for live demo ─── -->
+<script src="./selector.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "DOM Snapshot — 悬浮窗 UI（4 状态展示）",
+  "entry": "dom-snapshot-floating-panel.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-05-24T15:18:56.500Z",
+  "updatedAt": "2026-05-24T15:18:56.505Z",
+  "metadata": {
+    "identifier": "dom-snapshot-floating-panel",
+    "artifactType": "text/html",
+    "inferred": false
+  }
+}

@@ -1,0 +1,7 @@
+# debug
+.debug
+.history
+
+
+# Dependencies
+node_modules/
