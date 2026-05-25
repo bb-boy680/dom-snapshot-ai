@@ -54,6 +54,12 @@
 .status-dot {
   width: 8px; height: 8px; border-radius: 50%;
   background: #34c759;
+  transition: background 180ms;
+}
+.panel-root.is-paused .status-dot { background: var(--ink-muted-48); }
+.panel-root.is-paused .panel-title { color: var(--ink-muted-48); }
+.panel-root.is-paused .panel-editor {
+  opacity: 0.4; cursor: not-allowed;
 }
 .panel-ctrls { display: flex; gap: 4px; }
 .panel-ctrls button {

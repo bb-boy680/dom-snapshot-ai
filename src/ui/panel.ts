@@ -63,6 +63,13 @@ export function renderPanel(root: ShadowRoot, onClose: () => void): () => void {
     if (dockEl) { dockEl.remove(); dockEl = null; }
     if (!chromeEl) renderChrome();
     else chromeEl.style.display = '';
+    // reflect enabled/paused state
+    const panel = chromeEl!;
+    panel.classList.toggle('is-paused', !s.enabled);
+    const editorEl = panel.querySelector<HTMLDivElement>('.panel-editor');
+    if (editorEl) editorEl.contentEditable = s.enabled ? 'true' : 'false';
+    const titleEl = panel.querySelector<HTMLDivElement>('.panel-title');
+    if (titleEl) titleEl.childNodes[titleEl.childNodes.length - 1].textContent = s.enabled ? 'Selecting' : 'Paused';
     // sync per-chip data after chrome exists
     editor?.syncFromStore(s.items);
     updateFooterCount(s.items.filter((it) => it.committed).length);
