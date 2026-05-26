@@ -391,6 +391,8 @@
 }
 .popcard-meta {
   font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted-48);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 160px; text-align: right;
 }
 
 /* Edit popcard */
