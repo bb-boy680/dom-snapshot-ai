@@ -11,12 +11,10 @@ html.__dsai_active__, html.__dsai_active__ * { cursor: crosshair !important; }
 [${HOVER_ATTR}] {
   outline: 1.5px dashed #0066cc !important;
   outline-offset: 2px !important;
-  background-color: rgba(0, 102, 204, 0.045) !important;
 }
 [${SELECTED_ATTR}] {
   outline: 2px solid #0066cc !important;
   outline-offset: 3px !important;
-  background-color: rgba(0, 102, 204, 0.055) !important;
 }
 `;
 
@@ -37,6 +35,22 @@ export function initInteract(cb: InteractCallbacks): () => void {
   let bound = false;
   let disposed = false;
 
+  // While any element is selected, intercept ALL leave-style events to prevent
+  // tooltip libraries from removing the element when the mouse moves to the toolbar.
+  // This is safe in selection mode — the user isn't interacting normally with the page.
+  const LOCK_EVENTS = ['mouseleave', 'mouseout', 'pointerleave', 'pointerout'] as const;
+
+  const blockLeaveEvent = (e: Event): void => {
+    // Only block when there's an active selection (hover-lock mode)
+    if (!selectedEl || isFromPanel(e)) return;
+    // Don't block if the event stays inside the locked element subtree
+    const related = (e as MouseEvent).relatedTarget as Element | null;
+    if (selectedEl.contains(related)) return;
+    // Prevent the event from reaching the page's tooltip handlers
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  };
+
   const setHovered = (el: Element | null): void => {
     if (hoveredEl === el) return;
     if (hoveredEl) hoveredEl.removeAttribute(HOVER_ATTR);
@@ -44,11 +58,50 @@ export function initInteract(cb: InteractCallbacks): () => void {
     if (el) el.setAttribute(HOVER_ATTR, '');
   };
 
+  // Hover-lock: prevent hover-triggered elements (tooltips, dropdowns) from
+  // disappearing while the user is interacting with our toolbar. Works by
+  // injecting inline styles with !important to "freeze" the visible state.
+  const LOCK_ATTR = 'data-dsai-hover-locked';
+  const LOCK_STYLE_KEY = '__dsai_original_style__';
+
+  const lockHover = (el: Element | null): void => {
+    if (!(el instanceof HTMLElement) || el.hasAttribute(LOCK_ATTR)) return;
+    const cs = getComputedStyle(el);
+    el.dataset[LOCK_STYLE_KEY] = el.style.cssText;
+    el.setAttribute(LOCK_ATTR, '');
+    el.style.setProperty('display', cs.display, 'important');
+    el.style.setProperty('visibility', cs.visibility, 'important');
+    el.style.setProperty('opacity', cs.opacity, 'important');
+    // Don't set pointer-events: none — user still needs to click this element
+  };
+
+  const unlockHover = (el: Element | null): void => {
+    if (!(el instanceof HTMLElement) || !el.hasAttribute(LOCK_ATTR)) return;
+    el.removeAttribute(LOCK_ATTR);
+    el.style.cssText = el.dataset[LOCK_STYLE_KEY] ?? '';
+    delete el.dataset[LOCK_STYLE_KEY];
+  };
+
   const setSelected = (el: Element | null): void => {
     if (selectedEl === el) return;
-    if (selectedEl) selectedEl.removeAttribute(SELECTED_ATTR);
+    unlockHover(selectedEl);
+    if (selectedEl) {
+      selectedEl.removeAttribute(SELECTED_ATTR);
+      // Unregister leave-event blockers
+      for (const t of LOCK_EVENTS) {
+        window.removeEventListener(t, blockLeaveEvent, { capture: true });
+      }
+    }
     selectedEl = el;
-    if (el) el.setAttribute(SELECTED_ATTR, '');
+    if (el) {
+      lockHover(el);
+      el.setAttribute(SELECTED_ATTR, '');
+      // Register leave-event blockers globally at capture phase so they fire
+      // before any tooltip library's bubbling-phase handlers.
+      for (const t of LOCK_EVENTS) {
+        window.addEventListener(t, blockLeaveEvent, { capture: true, passive: false });
+      }
+    }
   };
 
   const syncSelectedFromState = (): void => {

@@ -94,7 +94,13 @@ function render(layer: HTMLDivElement, ref: MountedRef): void {
   }
 
   const rect = el.getBoundingClientRect();
-  const placeAbove = rect.top >= TOOLBAR_H + TOOLBAR_GAP + 4;
+  // First check if there's room vertically above/below; if not, place
+  // horizontally to the left/right of narrow elements (e.g., sidebars).
+  const fitsAbove = rect.top >= TOOLBAR_H + TOOLBAR_GAP + 4;
+  const fitsBelow = rect.bottom + TOOLBAR_H + TOOLBAR_GAP + 4 <= window.innerHeight;
+  const placeAbove = fitsAbove;
+  const placeLeft = !fitsAbove && !fitsBelow && rect.left >= 200;
+  const placeRight = !fitsAbove && !fitsBelow && !placeLeft && window.innerWidth - rect.right >= 200;
   let mounted = ref.get();
 
   // Rebuild only when the selection or card kind changes — never on scroll.
@@ -134,22 +140,69 @@ function render(layer: HTMLDivElement, ref: MountedRef): void {
   }
 
   // Layout — runs every frame; cheap because we only mutate top/left.
-  positionToolbar(mounted!.toolbarEl, rect, placeAbove);
+  positionToolbar(mounted!.toolbarEl, rect, placeAbove, placeLeft, placeRight);
   if (mounted!.cardEl) {
     const width = wantKind === 'style' ? 480 : 320;
-    positionCard(mounted!.cardEl, rect, width, placeAbove, mounted!.cardHeight);
+    const sideMode = placeLeft || placeRight;
+    positionCard(mounted!.cardEl, rect, width, placeAbove, mounted!.cardHeight, sideMode, mounted!.toolbarEl);
     alignArrow(mounted!.cardEl, mounted!.toolbarEl, wantKind!);
   }
 }
 
-function positionToolbar(tb: HTMLElement, rect: DOMRect, placeAbove: boolean): void {
-  const top = placeAbove ? rect.top - (TOOLBAR_H + TOOLBAR_GAP) : rect.bottom + TOOLBAR_GAP;
-  const left = Math.max(8, rect.left - 2);
+function positionToolbar(
+  tb: HTMLElement, rect: DOMRect, placeAbove: boolean, placeLeft: boolean, placeRight: boolean
+): void {
+  const tbW = tb.offsetWidth;
+  let top: number, left: number;
+
+  if (placeLeft) {
+    // Place toolbar to the left of the element, vertically centered
+    top = Math.max(8, rect.top + rect.height / 2 - TOOLBAR_H / 2);
+    left = rect.left - tbW - TOOLBAR_GAP;
+  } else if (placeRight) {
+    // Place toolbar to the right of the element, vertically centered
+    top = Math.max(8, rect.top + rect.height / 2 - TOOLBAR_H / 2);
+    left = rect.right + TOOLBAR_GAP;
+  } else {
+    // Default: above or below the element
+    top = placeAbove ? rect.top - (TOOLBAR_H + TOOLBAR_GAP) : rect.bottom + TOOLBAR_GAP;
+    left = Math.max(8, Math.min(window.innerWidth - tbW - 8, rect.left - 2));
+  }
+  // Keep toolbar within viewport bounds for top as well
+  top = Math.max(8, Math.min(window.innerHeight - TOOLBAR_H - 8, top));
   tb.style.top = `${top}px`;
   tb.style.left = `${left}px`;
 }
 
-function positionCard(card: HTMLElement, rect: DOMRect, width: number, toolbarAbove: boolean, cardH: number): void {
+function positionCard(
+  card: HTMLElement, rect: DOMRect, width: number, toolbarAbove: boolean, cardH: number,
+  sideMode: boolean, toolbarEl: HTMLElement,
+): void {
+  // When toolbar sits beside a narrow element (side-mode), anchor the card to
+  // the toolbar's position rather than the element's position.
+  if (sideMode) {
+    const tbRect = toolbarEl.getBoundingClientRect();
+    // Try to keep the card's left edge aligned with the toolbar's left edge.
+    // Shift left if card would overflow viewport right edge.
+    let left = tbRect.left;
+    if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
+    left = Math.max(8, left);
+    card.style.left = `${left}px`;
+
+    // Prefer placing the card below the toolbar; flip to above if that would
+    // go off the bottom of the viewport.
+    const belowTop = tbRect.bottom + TOOLBAR_GAP;
+    const fitsBelow = belowTop + cardH <= window.innerHeight - 8;
+    if (fitsBelow) {
+      card.classList.remove('arrow-bottom');
+      card.style.top = `${belowTop}px`;
+    } else {
+      card.classList.add('arrow-bottom');
+      card.style.top = `${Math.max(8, tbRect.top - TOOLBAR_GAP - cardH)}px`;
+    }
+    return;
+  }
+
   let left = rect.left;
   const overflow = left + width - window.innerWidth + 12;
   if (overflow > 0) left -= overflow;
