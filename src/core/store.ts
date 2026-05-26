@@ -157,6 +157,11 @@ export function setPanelOpen(v: boolean): void {
 
 export function setEnabled(next: boolean): void {
   if (state.enabled === next) return;
+  if (!next) {
+    // Disabling ends the selection session — clear active selection so
+    // re-enabling doesn't resurrect old outlines via syncSelectedFromState.
+    state.activeId = null;
+  }
   state.enabled = next;
   notify();
 }
