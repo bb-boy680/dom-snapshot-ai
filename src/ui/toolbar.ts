@@ -94,13 +94,6 @@ function render(layer: HTMLDivElement, ref: MountedRef): void {
   }
 
   const rect = el.getBoundingClientRect();
-  // First check if there's room vertically above/below; if not, place
-  // horizontally to the left/right of narrow elements (e.g., sidebars).
-  const fitsAbove = rect.top >= TOOLBAR_H + TOOLBAR_GAP + 4;
-  const fitsBelow = rect.bottom + TOOLBAR_H + TOOLBAR_GAP + 4 <= window.innerHeight;
-  const placeAbove = fitsAbove;
-  const placeLeft = !fitsAbove && !fitsBelow && rect.left >= 200;
-  const placeRight = !fitsAbove && !fitsBelow && !placeLeft && window.innerWidth - rect.right >= 200;
   let mounted = ref.get();
 
   // Rebuild only when the selection or card kind changes — never on scroll.
@@ -115,6 +108,17 @@ function render(layer: HTMLDivElement, ref: MountedRef): void {
     // Same item, content might have changed (style count, attach state, …).
     updateToolbarContent(mounted!.toolbarEl, item);
   }
+
+  // Measure real toolbar height (changes when wrapped on mobile)
+  const tbH = mounted!.toolbarEl.offsetHeight;
+
+  // First check if there's room vertically above/below; if not, place
+  // horizontally to the left/right of narrow elements (e.g., sidebars).
+  const fitsAbove = rect.top >= tbH + TOOLBAR_GAP + 4;
+  const fitsBelow = rect.bottom + tbH + TOOLBAR_GAP + 4 <= window.innerHeight;
+  const placeAbove = fitsAbove;
+  const placeLeft = !fitsAbove && !fitsBelow && rect.left >= 200;
+  const placeRight = !fitsAbove && !fitsBelow && !placeLeft && window.innerWidth - rect.right >= 200;
 
   // (Re)build the popcard only if the requested kind changed.
   const wantKind = ui.popcard;
@@ -140,43 +144,43 @@ function render(layer: HTMLDivElement, ref: MountedRef): void {
   }
 
   // Layout — runs every frame; cheap because we only mutate top/left.
-  positionToolbar(mounted!.toolbarEl, rect, placeAbove, placeLeft, placeRight);
+  positionToolbar(mounted!.toolbarEl, rect, tbH, placeAbove, placeLeft, placeRight);
   if (mounted!.cardEl) {
     const width = wantKind === 'style' ? 480 : 320;
     const sideMode = placeLeft || placeRight;
-    positionCard(mounted!.cardEl, rect, width, placeAbove, mounted!.cardHeight, sideMode, mounted!.toolbarEl);
+    positionCard(mounted!.cardEl, rect, width, placeAbove, mounted!.cardHeight, sideMode, mounted!.toolbarEl, tbH);
     alignArrow(mounted!.cardEl, mounted!.toolbarEl, wantKind!);
   }
 }
 
 function positionToolbar(
-  tb: HTMLElement, rect: DOMRect, placeAbove: boolean, placeLeft: boolean, placeRight: boolean
+  tb: HTMLElement, rect: DOMRect, tbH: number, placeAbove: boolean, placeLeft: boolean, placeRight: boolean
 ): void {
   const tbW = tb.offsetWidth;
   let top: number, left: number;
 
   if (placeLeft) {
     // Place toolbar to the left of the element, vertically centered
-    top = Math.max(8, rect.top + rect.height / 2 - TOOLBAR_H / 2);
+    top = Math.max(8, rect.top + rect.height / 2 - tbH / 2);
     left = rect.left - tbW - TOOLBAR_GAP;
   } else if (placeRight) {
     // Place toolbar to the right of the element, vertically centered
-    top = Math.max(8, rect.top + rect.height / 2 - TOOLBAR_H / 2);
+    top = Math.max(8, rect.top + rect.height / 2 - tbH / 2);
     left = rect.right + TOOLBAR_GAP;
   } else {
     // Default: above or below the element
-    top = placeAbove ? rect.top - (TOOLBAR_H + TOOLBAR_GAP) : rect.bottom + TOOLBAR_GAP;
+    top = placeAbove ? rect.top - (tbH + TOOLBAR_GAP) : rect.bottom + TOOLBAR_GAP;
     left = Math.max(8, Math.min(window.innerWidth - tbW - 8, rect.left - 2));
   }
   // Keep toolbar within viewport bounds for top as well
-  top = Math.max(8, Math.min(window.innerHeight - TOOLBAR_H - 8, top));
+  top = Math.max(8, Math.min(window.innerHeight - tbH - 8, top));
   tb.style.top = `${top}px`;
   tb.style.left = `${left}px`;
 }
 
 function positionCard(
   card: HTMLElement, rect: DOMRect, width: number, toolbarAbove: boolean, cardH: number,
-  sideMode: boolean, toolbarEl: HTMLElement,
+  sideMode: boolean, toolbarEl: HTMLElement, tbH: number,
 ): void {
   // When toolbar sits beside a narrow element (side-mode), anchor the card to
   // the toolbar's position rather than the element's position.
@@ -210,8 +214,8 @@ function positionCard(
 
   // Card defaults to below the element; toolbar (if same side) is jumped over.
   // Falls back to above when below doesn't fit.
-  const tbBelowOffset = toolbarAbove ? 0 : TOOLBAR_H + TOOLBAR_GAP;
-  const tbAboveOffset = toolbarAbove ? TOOLBAR_H + TOOLBAR_GAP : 0;
+  const tbBelowOffset = toolbarAbove ? 0 : tbH + TOOLBAR_GAP;
+  const tbAboveOffset = toolbarAbove ? tbH + TOOLBAR_GAP : 0;
   const belowTop = rect.bottom + TOOLBAR_GAP + tbBelowOffset;
   const aboveTop = rect.top - TOOLBAR_GAP - tbAboveOffset - cardH;
   const fitsBelow = belowTop + cardH + 8 <= window.innerHeight;
