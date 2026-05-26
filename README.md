@@ -2,6 +2,8 @@
 
 # Selector
 
+<sub>part of <a href="https://github.com/bb-boy680/dom-snapshot-ai"><code>dom-snapshot-ai</code></a></sub>
+
 **Point at any element. Tell your AI what to change.**
 
 A browser bookmarklet that lets you inspect any DOM element, capture its HTML and computed styles, attach modification requests, and export structured Markdown prompts for AI tools.
@@ -12,6 +14,7 @@ A browser bookmarklet that lets you inspect any DOM element, capture its HTML an
 [![Markdown](https://img.shields.io/badge/Output-Markdown-083fa1?logo=markdown&logoColor=fff)](#output-example)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6?logo=typescript&logoColor=fff)](https://www.typescriptlang.org/)
 [![Bun](https://img.shields.io/badge/Bun-runtime-fbf0df?logo=bun&logoColor=000)](https://bun.sh/)
+[![Deploy](https://img.shields.io/badge/GitHub-Pages-222?logo=github&logoColor=fff)](https://bb-boy680.github.io/dom-snapshot-ai/)
 [![License](https://img.shields.io/badge/License-MIT-green)](#license)
 
 [English](./README.md) · [中文](./docs/README.zh-CN.md)
@@ -34,9 +37,9 @@ No extension store. No permissions. No server. One bookmarklet, any page.
 
 ## Features
 
-- **One-click install** — drag the bookmarklet to your bar, done (~6 KB, zero dependencies)
+- **One-click install** — drag the bookmarklet to your bar, done (~15 KB gzip, zero dependencies)
 - **Visual element selection** — hover to highlight, click to select, works on any webpage
-- **Multi-select** — pick several elements into a single prompt with `Shift+Click`
+- **Multi-select** — `Shift+Click` picks and auto-attaches additional elements into the same prompt
 - **Computed styles capture** — filtered, grouped (layout / text / bg / border / effects), non-default only
 - **HTML snapshots** — simplified (self only) or full (descendants with truncation)
 - **Inline annotation** — write modification requests per element directly in the editor
@@ -72,7 +75,7 @@ That's it. Click the bookmark on any page to activate.
 | Action | Shortcut |
 |---|---|
 | Select element | `Click` |
-| Multi-select | `Shift + Click` |
+| Multi-select + Auto-attach | `Shift + Click` |
 | Navigate DOM tree | `←` `↑` `↓` `→` |
 | Pause / Resume hover | `Space` |
 | Copy prompt | `⌘ C` / `Alt + C` |
@@ -82,7 +85,7 @@ That's it. Click the bookmark on any page to activate.
 
 The copied prompt looks like this:
 
-```markdown
+````markdown
 # Element: <div class="product-card">
 - **URL**: /shop/accessories
 
@@ -103,7 +106,7 @@ background-color: #007bff;
 border-radius: 4px;
 ```
 
-- **HTML (full)`**:
+- **HTML (full)**:
 ```html
 <div class="product-card">
   <h3>AirPods Pro</h3>
@@ -111,11 +114,11 @@ border-radius: 4px;
   <span class="target-btn">Learn more</span>
 </div>
 ```
-```
+````
 
 ## Architecture
 
-Selector is a single IIFE with CSS inlined via esbuild. It mounts a `#__dom_snapshot_ai_root__` host element on `document.body` with an open Shadow DOM — all UI lives inside it, fully isolated from the host page.
+Selector is a single IIFE with CSS inlined via esbuild. It mounts a `#__dom_snapshot_ai_root__` host element on `document.documentElement` (`<html>`) with an open Shadow DOM — all UI lives inside it, fully isolated from the host page.
 
 ```
 src/
@@ -125,15 +128,14 @@ src/
 ├── core/
 │   ├── store.ts        # Central state + pub/sub + event bus
 │   ├── interact.ts     # Page-level event capture (hover/click/keyboard)
-│   ├── toolbar.ts      # Floating toolbar + popcards (Edit/Style/HTML)
-│   ├── panel.ts        # Prompt editor panel (contenteditable + chips)
 │   ├── markdown.ts     # Markdown prompt generation
 │   ├── html-snapshot.ts    # HTML capture (simplified / full)
 │   ├── style-groups.ts     # Computed style collection & grouping
-│   ├── selector-path.ts    # CSS selector generation
-│   └── draggable.ts    # Panel/dock drag with viewport clamping
+│   └── selector-path.ts    # CSS selector generation
 └── ui/
-    └── (re-exports from core/ — panel, toolbar, draggable)
+    ├── toolbar.ts      # Floating toolbar + popcards (Edit/Style/HTML)
+    ├── panel.ts        # Prompt editor panel (contenteditable + chips)
+    └── draggable.ts    # Panel/dock drag with viewport clamping
 ```
 
 Key design decisions:

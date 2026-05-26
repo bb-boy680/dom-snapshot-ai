@@ -2,6 +2,8 @@
 
 # Selector
 
+<sub>隶属于 <a href="https://github.com/bb-boy680/dom-snapshot-ai"><code>dom-snapshot-ai</code></a></sub>
+
 **指向任意元素，告诉 AI 你想改什么。**
 
 一个浏览器书签工具，让你可视化选取任意 DOM 元素，捕获 HTML 与计算样式，附加修改需求，然后导出结构化的 Markdown Prompt，直接喂给 AI 工具。
@@ -12,6 +14,7 @@
 [![Markdown](https://img.shields.io/badge/Output-Markdown-083fa1?logo=markdown&logoColor=fff)](#输出示例)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178c6?logo=typescript&logoColor=fff)](https://www.typescriptlang.org/)
 [![Bun](https://img.shields.io/badge/Bun-runtime-fbf0df?logo=bun&logoColor=000)](https://bun.sh/)
+[![Deploy](https://img.shields.io/badge/GitHub-Pages-222?logo=github&logoColor=fff)](https://bb-boy680.github.io/dom-snapshot-ai/)
 [![License](https://img.shields.io/badge/License-MIT-green)](#license)
 
 [English](../README.md) · [中文](./README.zh-CN.md)
@@ -34,9 +37,9 @@
 
 ## 特性
 
-- **一键安装** —— 把书签拖到书签栏即可（约 6 KB，零依赖）
+- **一键安装** —— 把书签拖到书签栏即可（gzip 后约 15 KB，零依赖）
 - **可视化选取** —— 鼠标悬停高亮，点击选中，任意网页可用
-- **多选** —— 用 `Shift+Click` 把多个元素装入同一个 Prompt
+- **多选** —— `Shift+Click` 选取并自动附加额外的元素到同一个 Prompt
 - **计算样式捕获** —— 过滤后的非默认样式，按组分类（layout / text / bg / border / effects）
 - **HTML 快照** —— 简洁模式（仅自身）或完整模式（含子节点，自动截断长文本）
 - **行内标注** —— 在编辑器中为每个元素直接写下修改需求
@@ -72,7 +75,7 @@
 | 操作 | 快捷键 |
 |---|---|
 | 选取元素 | `Click` |
-| 多选 | `Shift + Click` |
+| 多选并自动附加 | `Shift + Click` |
 | 在 DOM 树中导航 | `←` `↑` `↓` `→` |
 | 暂停 / 恢复悬停 | `Space` |
 | 复制 Prompt | `⌘ C` / `Alt + C` |
@@ -115,7 +118,7 @@ border-radius: 4px;
 
 ## 架构
 
-Selector 是一个使用 esbuild 打包、CSS 内联的单文件 IIFE。它在 `document.body` 挂载一个 `#__dom_snapshot_ai_root__` 宿主元素并附加 Open Shadow DOM —— 所有 UI 都跑在 Shadow DOM 内，与宿主页面完全隔离。
+Selector 是一个使用 esbuild 打包、CSS 内联的单文件 IIFE。它在 `document.documentElement`（即 `<html>`）上挂载一个 `#__dom_snapshot_ai_root__` 宿主元素并附加 Open Shadow DOM —— 所有 UI 都跑在 Shadow DOM 内，与宿主页面完全隔离。
 
 ```
 src/
