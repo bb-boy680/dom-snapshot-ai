@@ -4,7 +4,7 @@ import globals from 'globals';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'mockups/**', 'eslint.config.js'],
+    ignores: ['**/*', '!src/**', '!tests/**', '!scripts/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
