@@ -333,9 +333,23 @@ class EditorController {
   removeChip(id: string): void {
     const chip = this.chipMap.get(id);
     if (!chip) return;
-    chip.remove();
+    this.detachChipNode(chip);
     this.chipMap.delete(id);
     removeItem(id);
+  }
+
+  // Strip the trailing single-space node that insertChip appends so detach/uncommit
+  // doesn't leave whitespace behind that accumulates across repeated toggles.
+  private detachChipNode(chip: HTMLElement): void {
+    const next = chip.nextSibling;
+    chip.remove();
+    if (!next || next.nodeType !== Node.TEXT_NODE) return;
+    const t = next.textContent ?? '';
+    if (t.length === 0) return;
+    if (t[0] !== ' ' && t[0] !== ' ') return;
+    const rest = t.slice(1);
+    if (rest) next.textContent = rest;
+    else next.parentNode?.removeChild(next);
   }
 
   // Hard reset — wipe every chip and any free text the user typed, leaving the
@@ -361,7 +375,7 @@ class EditorController {
     for (const [id, chip] of this.chipMap) {
       const item = byId.get(id);
       if (item && item.committed) this.patchChip(item);
-      else { chip.remove(); this.chipMap.delete(id); }
+      else { this.detachChipNode(chip); this.chipMap.delete(id); }
     }
   }
 

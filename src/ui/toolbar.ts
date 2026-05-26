@@ -185,7 +185,8 @@ function buildToolbar(item: SelectionItem): HTMLElement {
     e.stopPropagation();
     const act = btn.dataset.act as 'edit' | 'style' | 'html' | 'attach';
     if (act === 'attach') {
-      if (item.committed) uncommitItem(item.id);
+      const current = getState().items.find((it) => it.id === item.id);
+      if (current?.committed) uncommitItem(item.id);
       else {
         commitItem(item.id);
         emit({ type: 'chip-insert-request', id: item.id });
