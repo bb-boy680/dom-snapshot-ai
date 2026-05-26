@@ -265,7 +265,7 @@ function buildEditCard(item: SelectionItem): HTMLElement {
       <span class="popcard-meta" title="${escapeAttr(item.selector)}">${escapeHtml(item.label)}</span>
     </div>
     <div class="edit-body">
-      <textarea placeholder="描述你想对这个元素做的改动…">${escapeHtml(item.note)}</textarea>
+      <textarea placeholder="Describe the changes you want for this element…">${escapeHtml(item.note)}</textarea>
     </div>
     <div class="edit-actions">
       <button class="ghost" data-act="cancel">Cancel</button>
@@ -389,22 +389,22 @@ function buildHtmlCard(item: SelectionItem): HTMLElement {
       <span class="popcard-title">HTML Snapshot</span>
       <span class="popcard-meta" title="${escapeAttr(item.selector)}">${escapeHtml(item.label)}</span>
     </div>
-    <p class="html-hint">选择把哪种 HTML 形式附加到 prompt。</p>
+    <p class="html-hint">Choose which HTML form to attach to the prompt.</p>
     <div class="html-tabs">
       <button class="html-tab${item.htmlMode === 'simplified' ? ' is-on' : ''}" data-mode="simplified">
         <span class="ht-label">Simplified</span>
-        <span class="ht-desc">仅自身节点 · 不含子元素</span>
+        <span class="ht-desc">Self only · no children</span>
       </button>
       <button class="html-tab${item.htmlMode === 'full' ? ' is-on' : ''}" data-mode="full">
         <span class="ht-label">Full</span>
-        <span class="ht-desc">含所有后代 · 文本截 100 字</span>
+        <span class="ht-desc">All descendants · text truncated at 100 chars</span>
       </button>
     </div>
     <div class="html-code-wrap">
       <pre class="html-code">${highlightHtml(item.htmlSnap.html)}</pre>
     </div>
     <div class="html-footer">
-      <span class="html-meta">${item.htmlSnap.lineCount} 行 · ${item.htmlSnap.charCount} 字符</span>
+      <span class="html-meta">${item.htmlSnap.lineCount} lines · ${item.htmlSnap.charCount} chars</span>
       <button class="html-attach${item.htmlAttached ? ' is-attached' : ''}" data-act="toggle">${item.htmlAttached ? 'Detach' : 'Attach to prompt'}</button>
     </div>
   `;
