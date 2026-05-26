@@ -5,6 +5,7 @@ const mkItem = (over: Partial<SelectionItem> = {}): SelectionItem => ({
   id: 'sel_1',
   selector: 'section.pricing',
   label: 'section.pricing',
+  title: 'section.pricing',
   styles: [],
   htmlMode: 'simplified',
   htmlSnap: { html: '<section class="pricing"></section>', lineCount: 1, charCount: 36 },

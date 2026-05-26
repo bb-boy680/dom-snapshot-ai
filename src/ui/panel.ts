@@ -450,14 +450,17 @@ function buildChipNode(item: SelectionItem): HTMLSpanElement {
   span.className = 'tag';
   span.contentEditable = 'false';
   span.dataset.dsaiId = item.id;
-  span.title = item.selector;
+  span.title = item.title;
   span.replaceChildren(...buildChipContent(item));
   return span;
 }
 
 function buildChipContent(item: SelectionItem): Node[] {
   const frag = document.createDocumentFragment();
-  frag.appendChild(document.createTextNode(item.label));
+  const textSpan = document.createElement('span');
+  textSpan.className = 'tag-text';
+  textSpan.textContent = item.label;
+  frag.appendChild(textSpan);
 
   if (item.styles.length > 0) {
     const meta = document.createElement('span');

@@ -5,6 +5,7 @@ export interface SelectionItem {
   id: string;
   selector: string;
   label: string;
+  title: string;
   styles: StyleProp[];
   htmlMode: SnapshotMode;
   htmlSnap: Snapshot;

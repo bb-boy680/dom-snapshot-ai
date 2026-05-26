@@ -1,4 +1,4 @@
-import { selectorFor, shortLabelFor } from './selector-path';
+import { selectorFor, shortLabelFor, titleFor } from './selector-path';
 import { collectStyles, type StyleGroupData, type StyleProp } from './style-groups';
 import { htmlSnapshot, type Snapshot, type SnapshotMode } from './html-snapshot';
 import type { SelectionItem } from './markdown';
@@ -82,6 +82,7 @@ export function addElement(el: Element, commit = false): string {
       id,
       selector: selectorFor(el),
       label: shortLabelFor(el),
+      title: titleFor(el),
       styles: [],
       htmlMode: 'simplified',
       htmlSnap: snap,

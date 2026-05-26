@@ -14,6 +14,15 @@ export function shortLabelFor(el: Element): string {
   return segmentFor(el);
 }
 
+// Compact title for chip hover, e.g. `div.SignFlow-tab.SignFlow-tab--active` or `button#submit`.
+export function titleFor(el: Element): string {
+  const tag = el.tagName.toLowerCase();
+  if (el.id) return `${tag}#${cssEscape(el.id)}`;
+  const classes = Array.from(el.classList).map(cssEscape);
+  if (classes.length) return `${tag}.${classes.join('.')}`;
+  return tag;
+}
+
 function segmentFor(el: Element): string {
   const tag = el.tagName.toLowerCase();
   if (el.id) return `${tag}#${cssEscape(el.id)}`;
