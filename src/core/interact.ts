@@ -138,14 +138,16 @@ export function initInteract(cb: InteractCallbacks): () => void {
     if (inEditable) return;
 
     if (e.code === 'Space' && !hasMod) {
-      e.preventDefault();
-      setEnabled(!getState().enabled);
+      if (!getState().panelCollapsed) {
+        e.preventDefault();
+        setEnabled(!getState().enabled);
+      }
       return;
     }
 
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown'
         || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      tryNavigate(e);
+      if (!getState().panelCollapsed) tryNavigate(e);
     }
   };
 
