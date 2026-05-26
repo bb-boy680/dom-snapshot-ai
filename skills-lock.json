@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "debug-fixer": {
+      "source": "bb-boy680/debug-fixer",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "65eae7bbee8e3df0fc08b7d3a8b8d53624399e4b9498602a1a36f9515708ca0e"
+    }
+  }
+}
