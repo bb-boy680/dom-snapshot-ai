@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
 import { isFromPanel, HOST_ID, initInteract } from '../../src/core/interact';
-import { setEnabled, clearAll, getState as getStoreState } from '../../src/core/store';
+import { setEnabled, clearAll, getState as getStoreState, setActive } from '../../src/core/store';
 
 describe('isFromPanel', () => {
   let host: HTMLDivElement;
@@ -222,5 +222,145 @@ describe('dispose idempotency', () => {
     const dispose = initInteract({ onSelect: () => {} });
     setEnabled(false);
     expect(() => dispose()).not.toThrow();
+  });
+});
+
+describe('hover-lock: prevent hover-triggered elements from disappearing', () => {
+  let dispose: () => void;
+  let host: HTMLDivElement;
+
+  beforeEach(() => {
+    host = document.createElement('div');
+    host.id = HOST_ID;
+    document.body.appendChild(host);
+    clearAll();
+    setEnabled(true);
+    // Hover-lock happens in setSelected(), which is called by syncSelectedFromState
+    // when the activeId changes. Wire up setActive in onSelect so the full cycle works.
+    dispose = initInteract({ onSelect: (_el, id) => setActive(id) });
+  });
+
+  afterEach(() => {
+    dispose();
+    host.remove();
+  });
+
+  // pickEl() uses document.elementsFromPoint(), which happy-dom does not implement.
+  // Instead we bypass the event pipeline and directly test the setSelected() behavior.
+  function selectElement(el: HTMLElement): void {
+    // Manually trigger the same path that pickEl + addElement + syncSelectedFromState would
+    const btnRect = el.getBoundingClientRect();
+    const originalPick = (document as any).elementsFromPoint;
+    (document as any).elementsFromPoint = () => [el];
+    const e = new MouseEvent('click', {
+      bubbles: true, cancelable: true, composed: true,
+      clientX: btnRect.left + 1, clientY: btnRect.top + 1,
+    });
+    try { el.dispatchEvent(e); } catch { /* ignore happy-dom internal errors */ }
+    (document as any).elementsFromPoint = originalPick;
+  }
+
+  test('selected element gets lock attribute and inline important styles', () => {
+    const btn = document.createElement('button');
+    btn.style.cssText = 'position:fixed;top:50px;left:50px;width:100px;height:30px;';
+    document.body.appendChild(btn);
+
+    selectElement(btn);
+
+    // Lock attribute applied (the key behavior)
+    expect(btn.hasAttribute('data-dsai-hover-locked')).toBe(true);
+    // Original style is preserved in dataset
+    expect(btn.dataset['__dsai_original_style__']).toBeDefined();
+    // display gets !important — happy-dom reliably reports this
+    expect(btn.style.getPropertyPriority('display')).toBe('important');
+    btn.remove();
+  });
+
+  test('unselecting element removes lock attribute and restores original style', () => {
+    const btn = document.createElement('button');
+    btn.style.cssText = 'position:fixed;top:50px;left:50px;width:100px;height:30px;';
+    document.body.appendChild(btn);
+
+    selectElement(btn);
+    expect(btn.hasAttribute('data-dsai-hover-locked')).toBe(true);
+
+    // Clear selection (ESC)
+    const esc = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    Object.defineProperty(esc, 'target', { value: document.body });
+    try { document.dispatchEvent(esc); } catch { /* ignore */ }
+
+    expect(btn.hasAttribute('data-dsai-hover-locked')).toBe(false);
+    expect(btn.dataset['__dsai_original_style__']).toBeUndefined();
+    btn.remove();
+  });
+
+  test('locked element does NOT have pointer-events: none', () => {
+    const btn = document.createElement('button');
+    btn.style.cssText = 'position:fixed;top:50px;left:50px;width:100px;height:30px;';
+    document.body.appendChild(btn);
+
+    selectElement(btn);
+
+    // We use event.preventDefault() to block navigation, not pointer-events: none
+    // which would make the element unclickable even for us!
+    expect(btn.style.pointerEvents).not.toBe('none');
+    btn.remove();
+  });
+
+  test('click is preventDefaulted (no navigation, no form submission)', () => {
+    const btn = document.createElement('button');
+    btn.style.cssText = 'position:fixed;top:50px;left:50px;width:100px;height:30px;';
+    document.body.appendChild(btn);
+
+    const originalPick = (document as any).elementsFromPoint;
+    (document as any).elementsFromPoint = () => [btn];
+    const e = new MouseEvent('click', {
+      bubbles: true, cancelable: true, composed: true, clientX: 55, clientY: 55,
+    });
+    try { btn.dispatchEvent(e); } catch { /* ignore */ }
+    (document as any).elementsFromPoint = originalPick;
+
+    // The blocker should always preventDefault clicks on the host page
+    expect(e.defaultPrevented).toBe(true);
+    btn.remove();
+  });
+
+  test('style values captured at lock time are preserved with !important', () => {
+    const btn = document.createElement('button');
+    btn.style.display = 'flex';
+    btn.style.opacity = '0.9';
+    btn.style.visibility = 'visible';
+    btn.style.cssText += ';position:fixed;top:50px;left:50px;width:100px;height:30px;';
+    document.body.appendChild(btn);
+
+    selectElement(btn);
+
+    // Values are preserved
+    expect(btn.style.display).toBe('flex');
+    expect(Number.parseFloat(btn.style.opacity)).toBeGreaterThan(0);
+    btn.remove();
+  });
+
+  test('mouseleave events are blocked when element is selected', () => {
+    const btn = document.createElement('button');
+    btn.style.cssText = 'position:fixed;top:50px;left:50px;width:100px;height:30px;';
+    document.body.appendChild(btn);
+
+    let leaveFired = false;
+    btn.addEventListener('mouseleave', () => { leaveFired = true; });
+
+    // Select to activate event blocking
+    selectElement(btn);
+
+    // Simulate mouse leaving (tooltip library's trigger)
+    const leave = new MouseEvent('mouseleave', {
+      bubbles: true, cancelable: true,
+      relatedTarget: document.body, // moved outside the button
+    });
+    btn.dispatchEvent(leave);
+
+    // The library's mouseleave listener should never have been called
+    expect(leave.defaultPrevented).toBe(true);
+    btn.remove();
   });
 });

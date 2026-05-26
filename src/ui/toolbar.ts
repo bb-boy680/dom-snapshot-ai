@@ -94,7 +94,6 @@ function render(layer: HTMLDivElement, ref: MountedRef): void {
   }
 
   const rect = el.getBoundingClientRect();
-  const placeAbove = rect.top >= TOOLBAR_H + TOOLBAR_GAP + 4;
   let mounted = ref.get();
 
   // Rebuild only when the selection or card kind changes — never on scroll.
@@ -109,6 +108,17 @@ function render(layer: HTMLDivElement, ref: MountedRef): void {
     // Same item, content might have changed (style count, attach state, …).
     updateToolbarContent(mounted!.toolbarEl, item);
   }
+
+  // Measure real toolbar height (changes when wrapped on mobile)
+  const tbH = mounted!.toolbarEl.offsetHeight;
+
+  // First check if there's room vertically above/below; if not, place
+  // horizontally to the left/right of narrow elements (e.g., sidebars).
+  const fitsAbove = rect.top >= tbH + TOOLBAR_GAP + 4;
+  const fitsBelow = rect.bottom + tbH + TOOLBAR_GAP + 4 <= window.innerHeight;
+  const placeAbove = fitsAbove;
+  const placeLeft = !fitsAbove && !fitsBelow && rect.left >= 200;
+  const placeRight = !fitsAbove && !fitsBelow && !placeLeft && window.innerWidth - rect.right >= 200;
 
   // (Re)build the popcard only if the requested kind changed.
   const wantKind = ui.popcard;
@@ -134,22 +144,69 @@ function render(layer: HTMLDivElement, ref: MountedRef): void {
   }
 
   // Layout — runs every frame; cheap because we only mutate top/left.
-  positionToolbar(mounted!.toolbarEl, rect, placeAbove);
+  positionToolbar(mounted!.toolbarEl, rect, tbH, placeAbove, placeLeft, placeRight);
   if (mounted!.cardEl) {
     const width = wantKind === 'style' ? 480 : 320;
-    positionCard(mounted!.cardEl, rect, width, placeAbove, mounted!.cardHeight);
+    const sideMode = placeLeft || placeRight;
+    positionCard(mounted!.cardEl, rect, width, placeAbove, mounted!.cardHeight, sideMode, mounted!.toolbarEl, tbH);
     alignArrow(mounted!.cardEl, mounted!.toolbarEl, wantKind!);
   }
 }
 
-function positionToolbar(tb: HTMLElement, rect: DOMRect, placeAbove: boolean): void {
-  const top = placeAbove ? rect.top - (TOOLBAR_H + TOOLBAR_GAP) : rect.bottom + TOOLBAR_GAP;
-  const left = Math.max(8, rect.left - 2);
+function positionToolbar(
+  tb: HTMLElement, rect: DOMRect, tbH: number, placeAbove: boolean, placeLeft: boolean, placeRight: boolean
+): void {
+  const tbW = tb.offsetWidth;
+  let top: number, left: number;
+
+  if (placeLeft) {
+    // Place toolbar to the left of the element, vertically centered
+    top = Math.max(8, rect.top + rect.height / 2 - tbH / 2);
+    left = rect.left - tbW - TOOLBAR_GAP;
+  } else if (placeRight) {
+    // Place toolbar to the right of the element, vertically centered
+    top = Math.max(8, rect.top + rect.height / 2 - tbH / 2);
+    left = rect.right + TOOLBAR_GAP;
+  } else {
+    // Default: above or below the element
+    top = placeAbove ? rect.top - (tbH + TOOLBAR_GAP) : rect.bottom + TOOLBAR_GAP;
+    left = Math.max(8, Math.min(window.innerWidth - tbW - 8, rect.left - 2));
+  }
+  // Keep toolbar within viewport bounds for top as well
+  top = Math.max(8, Math.min(window.innerHeight - tbH - 8, top));
   tb.style.top = `${top}px`;
   tb.style.left = `${left}px`;
 }
 
-function positionCard(card: HTMLElement, rect: DOMRect, width: number, toolbarAbove: boolean, cardH: number): void {
+function positionCard(
+  card: HTMLElement, rect: DOMRect, width: number, toolbarAbove: boolean, cardH: number,
+  sideMode: boolean, toolbarEl: HTMLElement, tbH: number,
+): void {
+  // When toolbar sits beside a narrow element (side-mode), anchor the card to
+  // the toolbar's position rather than the element's position.
+  if (sideMode) {
+    const tbRect = toolbarEl.getBoundingClientRect();
+    // Try to keep the card's left edge aligned with the toolbar's left edge.
+    // Shift left if card would overflow viewport right edge.
+    let left = tbRect.left;
+    if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
+    left = Math.max(8, left);
+    card.style.left = `${left}px`;
+
+    // Prefer placing the card below the toolbar; flip to above if that would
+    // go off the bottom of the viewport.
+    const belowTop = tbRect.bottom + TOOLBAR_GAP;
+    const fitsBelow = belowTop + cardH <= window.innerHeight - 8;
+    if (fitsBelow) {
+      card.classList.remove('arrow-bottom');
+      card.style.top = `${belowTop}px`;
+    } else {
+      card.classList.add('arrow-bottom');
+      card.style.top = `${Math.max(8, tbRect.top - TOOLBAR_GAP - cardH)}px`;
+    }
+    return;
+  }
+
   let left = rect.left;
   const overflow = left + width - window.innerWidth + 12;
   if (overflow > 0) left -= overflow;
@@ -157,8 +214,8 @@ function positionCard(card: HTMLElement, rect: DOMRect, width: number, toolbarAb
 
   // Card defaults to below the element; toolbar (if same side) is jumped over.
   // Falls back to above when below doesn't fit.
-  const tbBelowOffset = toolbarAbove ? 0 : TOOLBAR_H + TOOLBAR_GAP;
-  const tbAboveOffset = toolbarAbove ? TOOLBAR_H + TOOLBAR_GAP : 0;
+  const tbBelowOffset = toolbarAbove ? 0 : tbH + TOOLBAR_GAP;
+  const tbAboveOffset = toolbarAbove ? tbH + TOOLBAR_GAP : 0;
   const belowTop = rect.bottom + TOOLBAR_GAP + tbBelowOffset;
   const aboveTop = rect.top - TOOLBAR_GAP - tbAboveOffset - cardH;
   const fitsBelow = belowTop + cardH + 8 <= window.innerHeight;
@@ -185,7 +242,8 @@ function buildToolbar(item: SelectionItem): HTMLElement {
     e.stopPropagation();
     const act = btn.dataset.act as 'edit' | 'style' | 'html' | 'attach';
     if (act === 'attach') {
-      if (item.committed) uncommitItem(item.id);
+      const current = getState().items.find((it) => it.id === item.id);
+      if (current?.committed) uncommitItem(item.id);
       else {
         commitItem(item.id);
         emit({ type: 'chip-insert-request', id: item.id });
@@ -265,7 +323,7 @@ function buildEditCard(item: SelectionItem): HTMLElement {
       <span class="popcard-meta" title="${escapeAttr(item.selector)}">${escapeHtml(item.label)}</span>
     </div>
     <div class="edit-body">
-      <textarea placeholder="描述你想对这个元素做的改动…">${escapeHtml(item.note)}</textarea>
+      <textarea placeholder="Describe the changes you want for this element…">${escapeHtml(item.note)}</textarea>
     </div>
     <div class="edit-actions">
       <button class="ghost" data-act="cancel">Cancel</button>
@@ -389,22 +447,22 @@ function buildHtmlCard(item: SelectionItem): HTMLElement {
       <span class="popcard-title">HTML Snapshot</span>
       <span class="popcard-meta" title="${escapeAttr(item.selector)}">${escapeHtml(item.label)}</span>
     </div>
-    <p class="html-hint">选择把哪种 HTML 形式附加到 prompt。</p>
+    <p class="html-hint">Choose which HTML form to attach to the prompt.</p>
     <div class="html-tabs">
       <button class="html-tab${item.htmlMode === 'simplified' ? ' is-on' : ''}" data-mode="simplified">
         <span class="ht-label">Simplified</span>
-        <span class="ht-desc">仅自身节点 · 不含子元素</span>
+        <span class="ht-desc">Self only · no children</span>
       </button>
       <button class="html-tab${item.htmlMode === 'full' ? ' is-on' : ''}" data-mode="full">
         <span class="ht-label">Full</span>
-        <span class="ht-desc">含所有后代 · 文本截 100 字</span>
+        <span class="ht-desc">All descendants · text truncated at 100 chars</span>
       </button>
     </div>
     <div class="html-code-wrap">
       <pre class="html-code">${highlightHtml(item.htmlSnap.html)}</pre>
     </div>
     <div class="html-footer">
-      <span class="html-meta">${item.htmlSnap.lineCount} 行 · ${item.htmlSnap.charCount} 字符</span>
+      <span class="html-meta">${item.htmlSnap.lineCount} lines · ${item.htmlSnap.charCount} chars</span>
       <button class="html-attach${item.htmlAttached ? ' is-attached' : ''}" data-act="toggle">${item.htmlAttached ? 'Detach' : 'Attach to prompt'}</button>
     </div>
   `;

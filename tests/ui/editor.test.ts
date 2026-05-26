@@ -7,6 +7,7 @@ const mkItem = (over: Partial<SelectionItem> = {}): SelectionItem => ({
   id: 'sel_1',
   selector: 'header.nav',
   label: 'header.nav',
+  title: 'header.nav',
   styles: [],
   htmlMode: 'simplified',
   htmlSnap: { html: '<header></header>', lineCount: 1, charCount: 17 },

@@ -5,6 +5,7 @@ export interface SelectionItem {
   id: string;
   selector: string;
   label: string;
+  title: string;
   styles: StyleProp[];
   htmlMode: SnapshotMode;
   htmlSnap: Snapshot;
@@ -68,22 +69,40 @@ function renderElementBlock(item: SelectionItem): string {
 
 function currentUrlPath(): string {
   try {
-    return typeof location !== 'undefined' ? location.pathname : '/';
+    if (typeof location === 'undefined') return '/';
+    return `${location.pathname}${location.search}${location.hash}` || '/';
   } catch {
     return '/';
   }
 }
 
 function elementHeading(item: SelectionItem): string {
-  const fromHtml = firstOpenTag(item.htmlSnap.html);
-  if (fromHtml) return fromHtml;
-  // Fallback: derive `<tag>` from the trailing segment of the selector.
-  const last = item.selector.split('>').pop()?.trim() ?? '';
-  const tag = last.split(/[.#[:\s]/, 1)[0] || 'element';
-  return `<${tag}>`;
+  const tag = parseTagName(item.htmlSnap.html) ?? tagFromSelector(item.selector);
+  const attrs = parseIdentifyingAttrs(item.htmlSnap.html);
+  const rendered = attrs ? `<${tag} ${attrs}>` : `<${tag}>`;
+  return rendered;
 }
 
-function firstOpenTag(html: string): string {
-  const m = html.match(/<[a-zA-Z][^>]*>/);
-  return m ? m[0] : '';
+function parseTagName(html: string): string | null {
+  const m = html.match(/<([a-zA-Z][a-zA-Z0-9-]*)/);
+  return m ? m[1].toLowerCase() : null;
+}
+
+function tagFromSelector(selector: string): string {
+  const last = selector.split('>').pop()?.trim() ?? '';
+  return last.split(/[.#[:\s]/, 1)[0] || 'element';
+}
+
+function parseIdentifyingAttrs(html: string): string {
+  const open = html.match(/<[a-zA-Z][^>]*>/);
+  if (!open) return '';
+  const tag = open[0];
+  const id = tag.match(/\sid\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
+  const cls = tag.match(/\sclass\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
+  const parts: string[] = [];
+  const idVal = id ? (id[2] ?? id[3] ?? id[4] ?? '') : '';
+  if (idVal) parts.push(`id="${idVal}"`);
+  const clsVal = cls ? (cls[2] ?? cls[3] ?? cls[4] ?? '') : '';
+  if (clsVal) parts.push(`class="${clsVal.trim()}"`);
+  return parts.join(' ');
 }

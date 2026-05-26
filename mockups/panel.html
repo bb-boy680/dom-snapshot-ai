@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -597,14 +597,14 @@
 <div class="page">
   <header class="page-header">
     <h1>DOM Snapshot — Floating Panel</h1>
-    <p>侧边悬浮窗的四种状态。Apple 设计语言：SF Pro、Action Blue 单色强调、pill 主按钮、hairline 描边、唯一 product-shadow 留给浮窗本体。</p>
+    <p>Four states of the floating side panel. Apple design language: SF Pro, single Action Blue accent, pill primary button, hairline borders, the only product-shadow reserved for the panel itself.</p>
   </header>
 
   <div class="grid">
 
     <!-- ============ State 1: empty ============ -->
     <section class="state-card">
-      <div class="state-label"><span class="dot"></span>空状态 — 还未选中任何元素</div>
+      <div class="state-label"><span class="dot"></span>Empty — No elements selected</div>
       <div class="state-stage">
         <div class="panel">
           <div class="panel-titlebar">
@@ -626,7 +626,7 @@
           </div>
 
           <div class="panel-editor-wrap">
-            <div class="panel-editor" contenteditable="true" data-placeholder="点击页面中的元素，DOM tag 会作为 chip 嵌入到这里…"></div>
+            <div class="panel-editor" contenteditable="true" data-placeholder="Click an element on the page — its DOM tag will be embedded here as a chip…"></div>
           </div>
 
           <div class="panel-footer">
@@ -638,7 +638,7 @@
 
     <!-- ============ State 2: 1 tag ============ -->
     <section class="state-card">
-      <div class="state-label"><span class="dot"></span>已选 1 个元素</div>
+      <div class="state-label"><span class="dot"></span>1 element selected</div>
       <div class="state-stage">
         <div class="panel">
           <div class="panel-titlebar">
@@ -660,7 +660,7 @@
           </div>
 
           <div class="panel-editor-wrap">
-            <div class="panel-editor" contenteditable="true">把<span class="tag" contenteditable="false">header.nav<span class="tag-meta" title="Style 已勾选 5 个属性"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>5</span><span class="tag-meta" title="HTML Simplified">HTML·S</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">header.nav</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Layout 3</span><span class="tt-pill">Text 2</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Simplified · 1 line</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val tt-empty">无修改意见</span></div></span></span>在窗口缩小时切换成汉堡菜单，移动端高度变为 56px。</div>
+            <div class="panel-editor" contenteditable="true">Change <span class="tag" contenteditable="false">header.nav<span class="tag-meta" title="5 style properties selected"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>5</span><span class="tag-meta" title="HTML Simplified">HTML·S</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">header.nav</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Layout 3</span><span class="tt-pill">Text 2</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Simplified · 1 line</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val tt-empty">No changes</span></div></span></span> to a hamburger menu on small screens; mobile height should become 56px.</div>
           </div>
 
           <div class="panel-footer">
@@ -674,7 +674,7 @@
 
     <!-- ============ State 3: many tags ============ -->
     <section class="state-card">
-      <div class="state-label"><span class="dot"></span>已选多个元素</div>
+      <div class="state-label"><span class="dot"></span>Multiple elements selected</div>
       <div class="state-stage">
         <div class="panel">
           <div class="panel-titlebar">
@@ -696,7 +696,7 @@
           </div>
 
           <div class="panel-editor-wrap">
-            <div class="panel-editor" contenteditable="true">把<span class="tag" contenteditable="false">div#hero<span class="tag-meta" title="Style 已勾选 8 个属性"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>8</span><span class="tag-meta" title="HTML Full">HTML·F</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">div#hero</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Layout 4</span><span class="tt-pill">Bg 3</span><span class="tt-pill">Text 1</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Full · 48 lines · 1.2KB</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val">整体改为深色模式</span></div></span></span>整体改成深色：背景 #0a0a0a，主文本 #f5f5f7。<br><br><span class="tag" contenteditable="false">h1.title<span class="tag-meta" title="Style 已勾选 3 个属性"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>3</span><span class="tag-meta" title="HTML Simplified">HTML·S</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">h1.title</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Text 3</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Simplified · 1 line</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val tt-empty">无修改意见</span></div></span></span>字号放大到 64px，行高 1.05；<span class="tag" contenteditable="false">button.cta-primary<span class="tag-meta" title="未选 Style"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>0</span><span class="tag-meta" title="HTML Simplified">HTML·S</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">button.cta-primary</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val tt-empty">未勾选任何属性</span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Simplified · 1 line</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val">保持不变</span></div></span></span>保持 Action Blue 不变。<br><br>把<span class="tag" contenteditable="false">ul.feature-list<span class="tag-meta" title="Style 已勾选 6 个属性"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>6</span><span class="tag-meta" title="HTML Full">HTML·F</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">ul.feature-list</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Layout 4</span><span class="tt-pill">Text 2</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Full · 23 lines · 612B</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val">改为三列网格</span></div></span></span>换成三列网格，最后<span class="tag" contenteditable="false">footer.site-foot<span class="tag-meta" title="Style 已勾选 2 个属性"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>2</span><span class="tag-meta" title="HTML Simplified">HTML·S</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">footer.site-foot</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Border 2</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Simplified · 1 line</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val tt-empty">无修改意见</span></div></span></span>加 1px hairline 上边。</div>
+            <div class="panel-editor" contenteditable="true">Switch <span class="tag" contenteditable="false">div#hero<span class="tag-meta" title="8 style properties selected"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>8</span><span class="tag-meta" title="HTML Full">HTML·F</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">div#hero</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Layout 4</span><span class="tt-pill">Bg 3</span><span class="tt-pill">Text 1</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Full · 48 lines · 1.2KB</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val">Switch to dark mode</span></div></span></span> to dark mode: background #0a0a0a, primary text #f5f5f7.<br><br>Bump <span class="tag" contenteditable="false">h1.title<span class="tag-meta" title="3 style properties selected"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>3</span><span class="tag-meta" title="HTML Simplified">HTML·S</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">h1.title</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Text 3</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Simplified · 1 line</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val tt-empty">No changes</span></div></span></span> to 64px with 1.05 line-height; keep <span class="tag" contenteditable="false">button.cta-primary<span class="tag-meta" title="No styles selected"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>0</span><span class="tag-meta" title="HTML Simplified">HTML·S</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">button.cta-primary</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val tt-empty">No properties selected</span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Simplified · 1 line</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val">Keep as is</span></div></span></span> on Action Blue.<br><br>Convert <span class="tag" contenteditable="false">ul.feature-list<span class="tag-meta" title="6 style properties selected"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>6</span><span class="tag-meta" title="HTML Full">HTML·F</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">ul.feature-list</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Layout 4</span><span class="tt-pill">Text 2</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Full · 23 lines · 612B</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val">Three-column grid</span></div></span></span> into a three-column grid, and give <span class="tag" contenteditable="false">footer.site-foot<span class="tag-meta" title="2 style properties selected"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>2</span><span class="tag-meta" title="HTML Simplified">HTML·S</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">footer.site-foot</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Border 2</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Simplified · 1 line</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val tt-empty">No changes</span></div></span></span> a 1px hairline top border.</div>
           </div>
 
           <div class="panel-footer">
@@ -710,7 +710,7 @@
 
     <!-- ============ State 4: copied toast ============ -->
     <section class="state-card">
-      <div class="state-label"><span class="dot"></span>复制成功</div>
+      <div class="state-label"><span class="dot"></span>Copy succeeded</div>
       <div class="state-stage">
         <div class="panel">
           <div class="panel-titlebar">
@@ -732,7 +732,7 @@
           </div>
 
           <div class="panel-editor-wrap">
-            <div class="panel-editor" contenteditable="true">把<span class="tag" contenteditable="false">section.pricing<span class="tag-meta" title="Style 已勾选 4 个属性"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>4</span><span class="tag-meta" title="HTML Simplified">HTML·S</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">section.pricing</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Layout 4</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Simplified · 1 line</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val tt-empty">无修改意见</span></div></span></span>里的<span class="tag" contenteditable="false">div.plan-card<span class="tag-meta" title="Style 已勾选 7 个属性"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>7</span><span class="tag-meta" title="HTML Full">HTML·F</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">div.plan-card</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Layout 3</span><span class="tt-pill">Border 2</span><span class="tt-pill">Text 2</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Full · 34 lines · 892B</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val">三列等宽，推荐档高亮</span></div></span></span>改成三列等宽，推荐档加 Action Blue 边框。</div>
+            <div class="panel-editor" contenteditable="true">Inside <span class="tag" contenteditable="false">section.pricing<span class="tag-meta" title="4 style properties selected"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>4</span><span class="tag-meta" title="HTML Simplified">HTML·S</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">section.pricing</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Layout 4</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Simplified · 1 line</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val tt-empty">No changes</span></div></span></span>, lay out the <span class="tag" contenteditable="false">div.plan-card<span class="tag-meta" title="7 style properties selected"><svg viewBox="0 0 8 8"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>7</span><span class="tag-meta" title="HTML Full">HTML·F</span><button class="tag-x"><svg viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" stroke-width="1.4"/><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" stroke-width="1.4"/></svg></button><span class="tag-tooltip"><div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">div.plan-card</span></div><div class="tt-row"><span class="tt-key">Styles</span><span class="tt-val"><span class="tt-pill">Layout 3</span><span class="tt-pill">Border 2</span><span class="tt-pill">Text 2</span></span></div><div class="tt-row"><span class="tt-key">HTML</span><span class="tt-val">Full · 34 lines · 892B</span></div><div class="tt-row"><span class="tt-key">Edit</span><span class="tt-val">Three equal columns, highlight recommended</span></div></span></span> as three equal columns, and highlight the recommended plan with an Action Blue border.</div>
           </div>
 
           <div class="panel-footer">
@@ -744,21 +744,21 @@
 
         <div class="toast">
           <svg viewBox="0 0 12 12" fill="none"><path d="M2.5 6.5l2.5 2.5 4.5-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          已复制到剪贴板
+          Copied to clipboard
         </div>
       </div>
     </section>
 
     <!-- ============ State 5: collapsed / docked icon ============ -->
     <section class="state-card">
-      <div class="state-label"><span class="dot"></span>折叠态 — 收起到浏览器侧边</div>
+      <div class="state-label"><span class="dot"></span>Collapsed — Docked to browser edge</div>
       <div class="edge-stage">
         <div class="edge-faux">
           <span></span><span></span><span></span><span></span><span></span>
         </div>
         <div class="edge-strip"></div>
 
-        <button class="dock-icon" title="展开 DOM Snapshot">
+        <button class="dock-icon" title="Expand DOM Snapshot">
           <svg viewBox="0 0 18 18" fill="none">
             <path d="M3 4.5h12M3 9h12M3 13.5h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
             <circle cx="13.5" cy="13.5" r="2.2" stroke="currentColor" stroke-width="1.4"/>
@@ -766,7 +766,7 @@
           <span class="dock-badge">3</span>
         </button>
 
-        <div class="dock-hint">3 个已选 · 点击展开</div>
+        <div class="dock-hint">3 selected · Click to expand</div>
       </div>
     </section>
 

@@ -38,10 +38,11 @@ export function applyPanelPos(panel: HTMLElement, pos: PanelPos | null): void {
 
 export function makePanelDraggable(panel: HTMLElement, handle: HTMLElement): void {
   handle.style.cursor = 'grab';
+  handle.style.touchAction = 'none';
   // Buttons inside the title bar must keep working — stop drag from starting on them.
   handle.addEventListener('pointerdown', (e) => {
     if ((e.target as HTMLElement).closest('button')) return;
-    if (e.button !== 0) return;
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
     e.preventDefault();
 
     const rect = panel.getBoundingClientRect();
@@ -53,17 +54,22 @@ export function makePanelDraggable(panel: HTMLElement, handle: HTMLElement): voi
     panel.style.top    = `${rect.top}px`;
     panel.style.right  = 'auto';
     panel.style.bottom = 'auto';
+    panel.style.width  = `${rect.width}px`;
     handle.style.cursor = 'grabbing';
+    handle.setPointerCapture?.(e.pointerId);
 
     const onMove = (ev: PointerEvent): void => {
       const { left, top } = clampPanel(panel, ev.clientX - offX, ev.clientY - offY);
       panel.style.left = `${left}px`;
       panel.style.top  = `${top}px`;
     };
-    const onUp = (): void => {
+    const onUp = (ev: PointerEvent): void => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      handle.releasePointerCapture?.(ev.pointerId);
       handle.style.cursor = 'grab';
+      panel.style.removeProperty('width');
       writeJSON(PANEL_KEY, {
         left: parseFloat(panel.style.left),
         top:  parseFloat(panel.style.top),
@@ -71,6 +77,7 @@ export function makePanelDraggable(panel: HTMLElement, handle: HTMLElement): voi
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
   });
 }
 
@@ -95,6 +102,7 @@ export function applyDockPos(dock: HTMLElement, pos: DockPos | null): void {
 
 export function makeDockDraggable(dock: HTMLElement): void {
   dock.style.cursor = 'grab';
+  dock.style.touchAction = 'none';
   const DRAG_THRESHOLD = 3; // px — anything shorter is treated as a click
 
   let pressing = false;
@@ -103,7 +111,7 @@ export function makeDockDraggable(dock: HTMLElement): void {
   let offX = 0, offY = 0;
 
   dock.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
     pressing = true;
     dragging = false;
     startX = e.clientX;

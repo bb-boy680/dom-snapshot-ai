@@ -95,7 +95,7 @@ export function renderPanel(root: ShadowRoot, onClose: () => void): () => void {
         ${SHORTCUTS.map(([k, l]) => `<span class="kbd-group"><span class="kbd">${escapeHtml(k)}</span>${escapeHtml(l)}</span>`).join('')}
       </div>
       <div class="panel-editor-wrap">
-        <div class="panel-editor" contenteditable="true" data-placeholder="点击页面元素 → toolbar 中 Attach 将 chip 插入当前光标位置…"></div>
+        <div class="panel-editor" contenteditable="true" data-placeholder="Click an element on the page, then Attach from the toolbar to embed a chip at the cursor…"></div>
       </div>
       <div class="panel-footer">
         <button class="copy-btn" data-act="copy" disabled>Copy Prompt</button>
@@ -124,8 +124,8 @@ export function renderPanel(root: ShadowRoot, onClose: () => void): () => void {
       const segments = editor.serialize();
       const md = buildMarkdown(segments, getState().items);
       navigator.clipboard.writeText(md).then(
-        () => showToast('success', '已复制到剪贴板'),
-        () => showToast('error', '复制失败'),
+        () => showToast('success', 'Copied to clipboard'),
+        () => showToast('error', 'Copy failed'),
       );
     });
 
@@ -160,7 +160,7 @@ export function renderPanel(root: ShadowRoot, onClose: () => void): () => void {
       dockEl = document.createElement('div');
       dockEl.className = 'dock-wrap';
       dockEl.innerHTML = `
-        <button class="dock-icon" title="启用 DOM Snapshot">
+        <button class="dock-icon" title="Expand DOM Snapshot">
           <svg viewBox="0 0 18 18" fill="none">
             <path d="M3 4.5h12M3 9h12M3 13.5h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
             <circle cx="13.5" cy="13.5" r="2.2" stroke="currentColor" stroke-width="1.4"/>
@@ -206,8 +206,8 @@ export function renderPanel(root: ShadowRoot, onClose: () => void): () => void {
       const segments = editor.serialize();
       const md = buildMarkdown(segments, getState().items);
       navigator.clipboard.writeText(md).then(
-        () => showToast('success', '已复制到剪贴板'),
-        () => showToast('error', '复制失败'),
+        () => showToast('success', 'Copied to clipboard'),
+        () => showToast('error', 'Copy failed'),
       );
     }
   });
@@ -333,9 +333,23 @@ class EditorController {
   removeChip(id: string): void {
     const chip = this.chipMap.get(id);
     if (!chip) return;
-    chip.remove();
+    this.detachChipNode(chip);
     this.chipMap.delete(id);
     removeItem(id);
+  }
+
+  // Strip the trailing single-space node that insertChip appends so detach/uncommit
+  // doesn't leave whitespace behind that accumulates across repeated toggles.
+  private detachChipNode(chip: HTMLElement): void {
+    const next = chip.nextSibling;
+    chip.remove();
+    if (!next || next.nodeType !== Node.TEXT_NODE) return;
+    const t = next.textContent ?? '';
+    if (t.length === 0) return;
+    if (t[0] !== ' ' && t[0] !== ' ') return;
+    const rest = t.slice(1);
+    if (rest) next.textContent = rest;
+    else next.parentNode?.removeChild(next);
   }
 
   // Hard reset — wipe every chip and any free text the user typed, leaving the
@@ -361,7 +375,7 @@ class EditorController {
     for (const [id, chip] of this.chipMap) {
       const item = byId.get(id);
       if (item && item.committed) this.patchChip(item);
-      else { chip.remove(); this.chipMap.delete(id); }
+      else { this.detachChipNode(chip); this.chipMap.delete(id); }
     }
   }
 
@@ -436,19 +450,22 @@ function buildChipNode(item: SelectionItem): HTMLSpanElement {
   span.className = 'tag';
   span.contentEditable = 'false';
   span.dataset.dsaiId = item.id;
-  span.title = item.selector;
+  span.title = item.title;
   span.replaceChildren(...buildChipContent(item));
   return span;
 }
 
 function buildChipContent(item: SelectionItem): Node[] {
   const frag = document.createDocumentFragment();
-  frag.appendChild(document.createTextNode(item.label));
+  const textSpan = document.createElement('span');
+  textSpan.className = 'tag-text';
+  textSpan.textContent = item.label;
+  frag.appendChild(textSpan);
 
   if (item.styles.length > 0) {
     const meta = document.createElement('span');
     meta.className = 'tag-meta';
-    meta.title = `Style 已勾选 ${item.styles.length} 个属性`;
+    meta.title = `Style — ${item.styles.length} properties selected`;
     meta.innerHTML = `<svg viewBox="0 0 8 8" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"><path d="M1 2.5h6M1 4.5h6M1 6.5h4"/></svg>${item.styles.length}`;
     frag.appendChild(meta);
   }
@@ -475,13 +492,13 @@ function buildTooltip(item: SelectionItem): HTMLElement {
   tt.className = 'tag-tooltip';
   const styleRow = item.styles.length
     ? `<span class="tt-val">${renderStylePills(item.styles)}</span>`
-    : `<span class="tt-val tt-empty">未勾选任何属性</span>`;
+    : `<span class="tt-val tt-empty">No properties selected</span>`;
   const htmlRow = item.htmlAttached
-    ? `<span class="tt-val">${item.htmlMode} · ${item.htmlSnap.lineCount} 行 · ${item.htmlSnap.charCount}B</span>`
-    : `<span class="tt-val tt-empty">未附加 HTML</span>`;
+    ? `<span class="tt-val">${item.htmlMode} · ${item.htmlSnap.lineCount} lines · ${item.htmlSnap.charCount}B</span>`
+    : `<span class="tt-val tt-empty">No HTML attached</span>`;
   const noteRow = item.note.trim()
     ? `<span class="tt-val">${escapeHtml(item.note.trim()).slice(0, 60)}</span>`
-    : `<span class="tt-val tt-empty">无修改意见</span>`;
+    : `<span class="tt-val tt-empty">No changes</span>`;
   tt.innerHTML = `
     <div class="tt-row"><span class="tt-key">Selector</span><span class="tt-val">${escapeHtml(item.selector)}</span></div>
     <div class="tt-row"><span class="tt-key">Styles</span>${styleRow}</div>

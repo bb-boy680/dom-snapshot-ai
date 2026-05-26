@@ -5,6 +5,7 @@ const mkItem = (over: Partial<SelectionItem> = {}): SelectionItem => ({
   id: 'sel_1',
   selector: 'section.pricing',
   label: 'section.pricing',
+  title: 'section.pricing',
   styles: [],
   htmlMode: 'simplified',
   htmlSnap: { html: '<section class="pricing"></section>', lineCount: 1, charCount: 36 },
@@ -104,6 +105,38 @@ describe('buildMarkdown', () => {
     });
     const out = buildMarkdown([{ kind: 'chip', id: 'sel_1' }], [item]);
     expect(out).toContain('# Element: <h3>');
+  });
+
+  it('preserves hash and search in URL for SPA routes', () => {
+    const orig = { pathname: location.pathname, search: location.search, hash: location.hash };
+    Object.defineProperty(location, 'pathname', { configurable: true, value: '/foo' });
+    Object.defineProperty(location, 'search', { configurable: true, value: '?a=1' });
+    Object.defineProperty(location, 'hash', { configurable: true, value: '#/zh-CN/component/tooltip' });
+    try {
+      const item = mkItem();
+      const out = buildMarkdown([{ kind: 'chip', id: 'sel_1' }], [item]);
+      expect(out).toContain('- **URL**: /foo?a=1#/zh-CN/component/tooltip');
+    } finally {
+      Object.defineProperty(location, 'pathname', { configurable: true, value: orig.pathname });
+      Object.defineProperty(location, 'search', { configurable: true, value: orig.search });
+      Object.defineProperty(location, 'hash', { configurable: true, value: orig.hash });
+    }
+  });
+
+  it('reduces heading to tag + id + class, dropping other attributes', () => {
+    const item = mkItem({
+      selector: 'div#el-tooltip-9484',
+      htmlSnap: {
+        html:
+          '<div role="tooltip" id="el-tooltip-9484" aria-hidden="false" class="el-tooltip__popper is-dark" style="z-index: 2035;" x-placement="top" data-dsai-selected="">\n  Top Center\n</div>',
+        lineCount: 3,
+        charCount: 180,
+      },
+      htmlAttached: true,
+    });
+    const out = buildMarkdown([{ kind: 'chip', id: 'sel_1' }], [item]);
+    const heading = out.split('\n')[0];
+    expect(heading).toBe('# Element: <div id="el-tooltip-9484" class="el-tooltip__popper is-dark">');
   });
 
   it('full PRD-shaped snapshot for one chip surrounded by text', () => {
