@@ -10,6 +10,21 @@ import {
   readDockPos, readPanelPos,
 } from './draggable';
 
+function copyToClipboard(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  // Fallback for non-secure contexts (HTTP) where navigator.clipboard is unavailable
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;left:-9999px;opacity:0';
+  document.body.appendChild(ta);
+  ta.select();
+  const ok = document.execCommand('copy');
+  ta.remove();
+  return ok ? Promise.resolve() : Promise.reject(new Error('execCommand copy failed'));
+}
+
 const SHORTCUTS: Array<[string, string]> = [
   ['Click', 'Select'],
   ['⇧', 'Multi'],
@@ -123,7 +138,7 @@ export function renderPanel(root: ShadowRoot, onClose: () => void): () => void {
       if (!editor) return;
       const segments = editor.serialize();
       const md = buildMarkdown(segments, getState().items);
-      navigator.clipboard.writeText(md).then(
+      copyToClipboard(md).then(
         () => showToast('success', 'Copied to clipboard'),
         () => showToast('error', 'Copy failed'),
       );
@@ -205,7 +220,7 @@ export function renderPanel(root: ShadowRoot, onClose: () => void): () => void {
       // Handle keyboard shortcut copy request
       const segments = editor.serialize();
       const md = buildMarkdown(segments, getState().items);
-      navigator.clipboard.writeText(md).then(
+      copyToClipboard(md).then(
         () => showToast('success', 'Copied to clipboard'),
         () => showToast('error', 'Copy failed'),
       );
