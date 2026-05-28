@@ -1,5 +1,6 @@
 import type { StyleProp } from './style-groups';
 import type { Snapshot, SnapshotMode } from './html-snapshot';
+import type { ComponentPathResult } from './component-path';
 
 export interface SelectionItem {
   id: string;
@@ -12,6 +13,7 @@ export interface SelectionItem {
   htmlAttached: boolean;
   committed: boolean;
   note: string;
+  componentPath: ComponentPathResult | null;
 }
 
 export type Segment =
@@ -44,6 +46,15 @@ function renderElementBlock(item: SelectionItem): string {
   lines.push('');
   lines.push(`- **selector**: ${item.selector}`);
   lines.push('');
+  if (item.componentPath) {
+    lines.push(`- **componentPath**: ${item.componentPath.path}`);
+    const src = item.componentPath.sources.at(-1);
+    if (src?.file) {
+      const loc = src.line ? `${src.file}:${src.line}` : src.file;
+      lines.push(`- **source**: ${loc}`);
+    }
+    lines.push('');
+  }
   if (item.note.trim()) {
     lines.push('- **Modification Request**:');
     lines.push('```text');

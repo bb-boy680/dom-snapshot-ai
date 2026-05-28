@@ -44,6 +44,7 @@ No extension store. No permissions. No server. One bookmarklet, any page.
 - **HTML snapshots** — simplified (self only) or full (descendants with truncation)
 - **Inline annotation** — write modification requests per element directly in the editor
 - **Structured Markdown output** — selector path + styles + HTML + your notes, ready to paste
+- **Component path detection** — auto-detects React / Vue / Angular component hierarchy (e.g. `App › Layout › Card`) and source file locations in dev mode
 - **Keyboard-first workflow** — arrow keys for DOM navigation, `⌘C` / `Alt+C` to copy, `Space` to pause, `Esc` to clear
 - **Shadow DOM isolation** — UI lives in an open Shadow DOM; no CSS/JS conflicts with the host page
 - **Mobile-friendly** — touch-optimized floating UI with adaptive positioning
@@ -90,6 +91,8 @@ The copied prompt looks like this:
 - **URL**: /shop/accessories
 
 - **selector**: body > main > section > div.product-card
+- **componentPath**: App › MainLayout › ProductSection › ProductCard
+- **source**: src/components/ProductCard.tsx:24
 
 - **Modification Request**:
 ```text
@@ -131,7 +134,8 @@ src/
 │   ├── markdown.ts     # Markdown prompt generation
 │   ├── html-snapshot.ts    # HTML capture (simplified / full)
 │   ├── style-groups.ts     # Computed style collection & grouping
-│   └── selector-path.ts    # CSS selector generation
+│   ├── selector-path.ts    # CSS selector generation
+│   └── component-path.ts   # Framework component path + source detection
 └── ui/
     ├── toolbar.ts      # Floating toolbar + popcards (Edit/Style/HTML)
     ├── panel.ts        # Prompt editor panel (contenteditable + chips)

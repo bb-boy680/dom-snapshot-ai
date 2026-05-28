@@ -44,6 +44,7 @@
 - **HTML 快照** —— 简洁模式（仅自身）或完整模式（含子节点，自动截断长文本）
 - **行内标注** —— 在编辑器中为每个元素直接写下修改需求
 - **结构化 Markdown 输出** —— 选择器路径 + 样式 + HTML + 你的备注，复制即用
+- **组件路径检测** —— 自动识别 React / Vue / Angular 组件层级（如 `App › Layout › Card`），开发模式下可提取源文件位置
 - **键盘优先** —— 方向键导航 DOM，`⌘C` / `Alt+C` 复制，`Space` 暂停，`Esc` 清空
 - **Shadow DOM 隔离** —— UI 全部跑在 Open Shadow DOM 内，不会与宿主页面的 CSS/JS 冲突
 - **移动端友好** —— 触控优化的浮动 UI，自适应布局
@@ -90,6 +91,8 @@
 - **URL**: /shop/accessories
 
 - **selector**: body > main > section > div.product-card
+- **componentPath**: App › MainLayout › ProductSection › ProductCard
+- **source**: src/components/ProductCard.tsx:24
 
 - **Modification Request**:
 ```text
@@ -131,7 +134,8 @@ src/
 │   ├── markdown.ts     # Markdown Prompt 生成
 │   ├── html-snapshot.ts    # HTML 捕获（简洁 / 完整）
 │   ├── style-groups.ts     # 计算样式收集与分组
-│   └── selector-path.ts    # CSS 选择器生成
+│   ├── selector-path.ts    # CSS 选择器生成
+│   └── component-path.ts   # 框架组件路径 + 源文件检测
 └── ui/
     ├── toolbar.ts      # 浮动工具栏 + popcards（Edit / Style / HTML）
     ├── panel.ts        # Prompt 编辑面板（contenteditable + chips）

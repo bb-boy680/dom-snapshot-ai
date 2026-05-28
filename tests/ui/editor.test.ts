@@ -14,6 +14,7 @@ const mkItem = (over: Partial<SelectionItem> = {}): SelectionItem => ({
   htmlAttached: false,
   committed: true,
   note: '',
+  componentPath: null,
   ...over,
 });
 
