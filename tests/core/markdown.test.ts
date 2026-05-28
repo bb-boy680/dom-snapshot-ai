@@ -12,6 +12,7 @@ const mkItem = (over: Partial<SelectionItem> = {}): SelectionItem => ({
   htmlAttached: false,
   committed: true,
   note: '',
+  componentPath: null,
   ...over,
 });
 
@@ -173,5 +174,35 @@ describe('buildMarkdown', () => {
     expect(out).toContain('- **HTML (full)**:');
     expect(out).toContain('```html');
     expect(out).toContain('<div class="product-card">');
+  });
+
+  it('renders componentPath when present', () => {
+    const item = mkItem({
+      componentPath: {
+        path: 'Layout › Hero › Card',
+        sources: [{}, {}, { file: 'src/Card.tsx', line: 42 }],
+      },
+    });
+    const out = buildMarkdown([{ kind: 'chip', id: 'sel_1' }], [item]);
+    expect(out).toContain('- **componentPath**: Layout › Hero › Card');
+    expect(out).toContain('- **source**: src/Card.tsx:42');
+  });
+
+  it('omits componentPath when null', () => {
+    const item = mkItem({ componentPath: null });
+    const out = buildMarkdown([{ kind: 'chip', id: 'sel_1' }], [item]);
+    expect(out).not.toContain('componentPath');
+  });
+
+  it('omits source line when no file info available', () => {
+    const item = mkItem({
+      componentPath: {
+        path: 'Layout › Hero › Card',
+        sources: [{}, {}, {}],
+      },
+    });
+    const out = buildMarkdown([{ kind: 'chip', id: 'sel_1' }], [item]);
+    expect(out).toContain('- **componentPath**: Layout › Hero › Card');
+    expect(out).not.toContain('**source**');
   });
 });

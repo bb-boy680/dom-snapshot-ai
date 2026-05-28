@@ -1,6 +1,7 @@
 import { selectorFor, shortLabelFor, titleFor } from './selector-path';
 import { collectStyles, type StyleGroupData, type StyleProp } from './style-groups';
 import { htmlSnapshot, type Snapshot, type SnapshotMode } from './html-snapshot';
+import { componentPathFor } from './component-path';
 import type { SelectionItem } from './markdown';
 
 export interface AppState {
@@ -76,6 +77,7 @@ export function addElement(el: Element, commit = false): string {
   const id = `sel_${++seq}`;
   elementById.set(id, el);
   const snap = htmlSnapshot(el, 'simplified');
+  const compPath = componentPathFor(el);
   state.items = [
     ...state.items,
     {
@@ -89,6 +91,7 @@ export function addElement(el: Element, commit = false): string {
       htmlAttached: true,
       committed: commit,
       note: '',
+      componentPath: compPath,
     },
   ];
   state.activeId = id;
