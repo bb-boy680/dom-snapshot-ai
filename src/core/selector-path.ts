@@ -1,7 +1,23 @@
 export function selectorFor(el: Element): string {
+  const localSelector = selectorWithin(el);
+  const ownerDoc = el.ownerDocument;
+  if (ownerDoc && ownerDoc !== document) {
+    const iframe = findIframeFor(el);
+    if (iframe) {
+      const iframePath = selectorWithin(iframe);
+      const src = iframe.src || iframe.getAttribute('src') || '';
+      const iframeSeg = src ? `${iframePath}[${src}]` : iframePath;
+      return `${iframeSeg} > ${localSelector}`;
+    }
+  }
+  return localSelector;
+}
+
+function selectorWithin(el: Element): string {
   const parts: string[] = [];
   let cur: Element | null = el;
-  while (cur && cur.nodeType === 1 && cur !== document.documentElement) {
+  const ownerDoc = el.ownerDocument;
+  while (cur && cur.nodeType === 1 && cur !== ownerDoc?.documentElement) {
     parts.unshift(segmentFor(cur));
     if (cur.id) break;
     cur = cur.parentElement;
@@ -9,9 +25,38 @@ export function selectorFor(el: Element): string {
   return parts.join(' > ');
 }
 
+function findIframeFor(el: Element): HTMLIFrameElement | null {
+  const iframes = document.querySelectorAll('iframe');
+  for (const iframe of iframes) {
+    try {
+      if (iframe.contentDocument === el.ownerDocument) return iframe;
+    } catch { /* 跨域 */ }
+  }
+  return null;
+}
+
 // Short label for toolbar — only the leaf node, e.g. `div.product-card` or `button#submit`.
 export function shortLabelFor(el: Element): string {
-  return segmentFor(el);
+  const base = segmentFor(el);
+  if (el.ownerDocument !== document) {
+    const iframeLabel = getIframeLabel(el);
+    if (iframeLabel) return `${iframeLabel} > ${base}`;
+  }
+  return base;
+}
+
+function getIframeLabel(el: Element): string | null {
+  const iframes = document.querySelectorAll('iframe');
+  for (const iframe of iframes) {
+    try {
+      if (iframe.contentDocument === el.ownerDocument) {
+        if (iframe.id) return `iframe#${iframe.id}`;
+        if (iframe.name) return `iframe[name=${iframe.name}]`;
+        return 'iframe';
+      }
+    } catch { /* 跨域 */ }
+  }
+  return null;
 }
 
 // Compact title for chip hover, e.g. `div.SignFlow-tab.SignFlow-tab--active` or `button#submit`.

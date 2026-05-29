@@ -45,6 +45,7 @@ No extension store. No permissions. No server. One bookmarklet, any page.
 - **Inline annotation** — write modification requests per element directly in the editor
 - **Structured Markdown output** — selector path + styles + HTML + your notes, ready to paste
 - **Component path detection** — auto-detects React / Vue / Angular component hierarchy (e.g. `App › Layout › Card`) and source file locations in dev mode
+- **Same-origin iframe support** — hover, select, and navigate elements inside same-origin iframes; the selector path is self-describing across frame boundaries (e.g. `body > iframe[https://...] > body > div.card`)
 - **Keyboard-first workflow** — arrow keys for DOM navigation, `⌘C` / `Alt+C` to copy, `Space` to pause, `Esc` to clear
 - **Shadow DOM isolation** — UI lives in an open Shadow DOM; no CSS/JS conflicts with the host page
 - **Mobile-friendly** — touch-optimized floating UI with adaptive positioning
@@ -134,8 +135,9 @@ src/
 │   ├── markdown.ts     # Markdown prompt generation
 │   ├── html-snapshot.ts    # HTML capture (simplified / full)
 │   ├── style-groups.ts     # Computed style collection & grouping
-│   ├── selector-path.ts    # CSS selector generation
-│   └── component-path.ts   # Framework component path + source detection
+│   ├── selector-path.ts    # CSS selector generation (cross-iframe aware)
+│   ├── component-path.ts   # Framework component path + source detection
+│   └── iframe-manager.ts   # Same-origin iframe binding (events, outlines, MutationObserver)
 └── ui/
     ├── toolbar.ts      # Floating toolbar + popcards (Edit/Style/HTML)
     ├── panel.ts        # Prompt editor panel (contenteditable + chips)

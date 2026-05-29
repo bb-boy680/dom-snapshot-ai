@@ -1,4 +1,5 @@
 import { addElement, clearAll, emit, getElement, getState, setEnabled, setPanelCollapsed, subscribe } from './store';
+import { createIframeManager } from './iframe-manager';
 
 export const HOST_ID = '__dom_snapshot_ai_root__';
 
@@ -35,6 +36,25 @@ export function initInteract(cb: InteractCallbacks): () => void {
   let bound = false;
   let disposed = false;
 
+  const iframeManager = createIframeManager();
+
+  const iframeClickHandler = (el: Element, shiftKey: boolean): void => {
+    const id = addElement(el, shiftKey);
+    setHovered(null);
+    cb.onSelect(el, id);
+    if (shiftKey) {
+      emit({ type: 'chip-insert-request', id });
+    }
+  };
+
+  const iframeMoveHandler = (el: Element | null): void => {
+    if (!el || el === selectedEl) {
+      setHovered(null);
+      return;
+    }
+    setHovered(el);
+  };
+
   // While any element is selected, intercept ALL leave-style events to prevent
   // tooltip libraries from removing the element when the mouse moves to the toolbar.
   // This is safe in selection mode — the user isn't interacting normally with the page.
@@ -66,13 +86,20 @@ export function initInteract(cb: InteractCallbacks): () => void {
 
   const lockHover = (el: Element | null): void => {
     if (!(el instanceof HTMLElement) || el.hasAttribute(LOCK_ATTR)) return;
-    const cs = getComputedStyle(el);
-    el.dataset[LOCK_STYLE_KEY] = el.style.cssText;
-    el.setAttribute(LOCK_ATTR, '');
-    el.style.setProperty('display', cs.display, 'important');
-    el.style.setProperty('visibility', cs.visibility, 'important');
-    el.style.setProperty('opacity', cs.opacity, 'important');
-    // Don't set pointer-events: none — user still needs to click this element
+    try {
+      const view = el.ownerDocument.defaultView;
+      const cs = view ? view.getComputedStyle(el) : getComputedStyle(el);
+      el.dataset[LOCK_STYLE_KEY] = el.style.cssText;
+      el.setAttribute(LOCK_ATTR, '');
+      el.style.setProperty('display', cs.display, 'important');
+      el.style.setProperty('visibility', cs.visibility, 'important');
+      el.style.setProperty('opacity', cs.opacity, 'important');
+    } catch {
+      // getComputedStyle may fail in some environments (e.g., happy-dom iframes)
+      // Fallback: just set the lock attribute without freezing computed styles
+      el.dataset[LOCK_STYLE_KEY] = el.style.cssText;
+      el.setAttribute(LOCK_ATTR, '');
+    }
   };
 
   const unlockHover = (el: Element | null): void => {
@@ -223,7 +250,10 @@ export function initInteract(cb: InteractCallbacks): () => void {
     else if (e.key === 'ArrowDown') next = cur.firstElementChild;
     else if (e.key === 'ArrowLeft') next = cur.previousElementSibling;
     else if (e.key === 'ArrowRight') next = cur.nextElementSibling;
-    if (!next || next === document.body || next === document.documentElement) return;
+    if (!next) return;
+    // 停止在任意 document 的 body/html 上
+    const ownerDoc = next.ownerDocument;
+    if (next === ownerDoc?.body || next === ownerDoc?.documentElement) return;
     e.preventDefault();
     addElement(next, false);
   };
@@ -258,12 +288,33 @@ export function initInteract(cb: InteractCallbacks): () => void {
     document.documentElement.classList.toggle('__dsai_active__', enabled);
     if (enabled && !bound) {
       bindCaptureListeners();
+      iframeManager.bindAll(iframeClickHandler, iframeMoveHandler, onKey);
       bound = true;
     } else if (!enabled && bound) {
       unbindCaptureListeners();
+      iframeManager.unbindAll();
       bound = false;
     }
   };
+
+  const iframeObserver = new MutationObserver((mutations) => {
+    if (!getState().enabled) return;
+    for (const m of mutations) {
+      for (const node of m.addedNodes) {
+        if (node instanceof HTMLIFrameElement) {
+          // 立即尝试绑定，如果 iframe 已加载则直接成功
+          iframeManager.bind(node, iframeClickHandler, iframeMoveHandler, onKey);
+          // bind 内部会为未加载的 iframe 注册 load 监听器
+        }
+      }
+      for (const node of m.removedNodes) {
+        if (node instanceof HTMLIFrameElement) {
+          iframeManager.unbind(node);
+        }
+      }
+    }
+  });
+  iframeObserver.observe(document.body, { childList: true, subtree: true });
 
   document.addEventListener('keydown', onKey, true);
 
@@ -286,6 +337,8 @@ export function initInteract(cb: InteractCallbacks): () => void {
     setHovered(null);
     setSelected(null);
     document.documentElement.classList.remove('__dsai_active__');
+    iframeManager.dispose();
+    iframeObserver.disconnect();
     removeOutlineStyle();
     setPanelCollapsed(false);
   };
@@ -305,12 +358,45 @@ function removeOutlineStyle(): void {
 
 function pickEl(x: number, y: number): Element | null {
   const stack = document.elementsFromPoint(x, y);
+  let iframeHit: HTMLIFrameElement | null = null;
   for (const el of stack) {
     if (el.id === HOST_ID) continue;
     if (el.closest(`#${HOST_ID}`)) continue;
     if (el.hasAttribute('data-dsai-toolbar')) continue;
     if (el === document.documentElement || el === document.body) continue;
+    if (el.tagName === 'IFRAME') {
+      iframeHit = el as HTMLIFrameElement;
+      continue;
+    }
     return el;
+  }
+  // elementsFromPoint 可能不返回 iframe 元素（某些浏览器/场景）
+  // fallback：手动检查坐标是否落在某个 iframe 边界内
+  if (!iframeHit) {
+    const iframes = document.querySelectorAll('iframe');
+    for (const iframe of iframes) {
+      if (!(iframe instanceof HTMLIFrameElement)) continue;
+      const rect = iframe.getBoundingClientRect();
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+        iframeHit = iframe;
+        break;
+      }
+    }
+  }
+  if (iframeHit) {
+    try {
+      const doc = iframeHit.contentDocument;
+      if (doc) {
+        const rect = iframeHit.getBoundingClientRect();
+        const localX = x - rect.left;
+        const localY = y - rect.top;
+        const inner = doc.elementFromPoint(localX, localY);
+        if (inner && inner !== doc.documentElement && inner !== doc.body) {
+          return inner;
+        }
+      }
+    } catch { /* 跨域 iframe */ }
+    return iframeHit;
   }
   return null;
 }
