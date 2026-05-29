@@ -51,7 +51,8 @@ const DEFAULTS = new Set([
 ]);
 
 export function collectStyles(el: Element): StyleGroupData[] {
-  const cs = getComputedStyle(el);
+  const view = el.ownerDocument.defaultView;
+  const cs = view ? view.getComputedStyle(el) : getComputedStyle(el);
   return (Object.keys(GROUP_PROPS) as StyleGroupId[]).map((id) => ({
     id,
     title: titleOf(id),

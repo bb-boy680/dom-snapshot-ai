@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
 import { isFromPanel, HOST_ID, initInteract } from '../../src/core/interact';
-import { setEnabled, clearAll, getState as getStoreState, setActive } from '../../src/core/store';
+import { setEnabled, clearAll, getState as getStoreState, setActive, getElement } from '../../src/core/store';
 
 describe('isFromPanel', () => {
   let host: HTMLDivElement;
@@ -362,5 +362,95 @@ describe('hover-lock: prevent hover-triggered elements from disappearing', () =>
     // The library's mouseleave listener should never have been called
     expect(leave.defaultPrevented).toBe(true);
     btn.remove();
+  });
+});
+
+describe('pickEl iframe penetration', () => {
+  let host: HTMLDivElement;
+
+  beforeEach(() => {
+    host = document.createElement('div');
+    host.id = HOST_ID;
+    document.body.appendChild(host);
+    clearAll();
+    setEnabled(true);
+  });
+
+  afterEach(() => {
+    host.remove();
+  });
+
+  test('pickEl 穿透同源 iframe 返回内部元素', () => {
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument;
+    if (!doc) { iframe.remove(); return; }
+
+    const innerBtn = doc.createElement('button');
+    doc.body.appendChild(innerBtn);
+
+    const origFn = (document as any).elementsFromPoint;
+    (document as any).elementsFromPoint = () => [iframe];
+    const origIframeFn = (doc as any).elementFromPoint;
+    (doc as any).elementFromPoint = (_x: number, _y: number) => innerBtn;
+    const origRect = iframe.getBoundingClientRect.bind(iframe);
+    (iframe as any).getBoundingClientRect = () => ({ left: 0, top: 0, width: 300, height: 200, right: 300, bottom: 200, x: 0, y: 0 });
+
+    const dispose = initInteract({ onSelect: () => {} });
+
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    const e = new MouseEvent('click', {
+      bubbles: true, cancelable: true, composed: true,
+      clientX: 80, clientY: 60,
+    });
+    try { target.dispatchEvent(e); } catch { /* happy-dom iframe getComputedStyle errors */ }
+
+    // 验证 store 中元素是 iframe 内的按钮
+    const state = getStoreState();
+    expect(state.activeId).toBeTruthy();
+    if (state.activeId) {
+      const el = getElement(state.activeId);
+      expect(el).toBe(innerBtn);
+    }
+
+    (document as any).elementsFromPoint = origFn;
+    (doc as any).elementFromPoint = origIframeFn;
+    (iframe as any).getBoundingClientRect = origRect;
+    target.remove();
+    dispose();
+    iframe.remove();
+  });
+
+  test('pickEl 对跨域 iframe 返回 iframe 元素本身', () => {
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    Object.defineProperty(iframe, 'contentDocument', { get: () => { throw new DOMException('Blocked', 'SecurityError'); }, configurable: true });
+
+    const origFn = (document as any).elementsFromPoint;
+    (document as any).elementsFromPoint = () => [iframe];
+
+    const dispose = initInteract({ onSelect: () => {} });
+
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    const e = new MouseEvent('click', {
+      bubbles: true, cancelable: true, composed: true,
+      clientX: 80, clientY: 60,
+    });
+    try { target.dispatchEvent(e); } catch { /* ignore */ }
+
+    const state = getStoreState();
+    expect(state.activeId).toBeTruthy();
+    if (state.activeId) {
+      const el = getElement(state.activeId);
+      expect(el).toBe(iframe);
+    }
+
+    (document as any).elementsFromPoint = origFn;
+    delete (iframe as any).contentDocument;
+    target.remove();
+    dispose();
+    iframe.remove();
   });
 });

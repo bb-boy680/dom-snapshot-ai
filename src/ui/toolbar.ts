@@ -5,6 +5,7 @@ import {
 import { htmlSnapshot, type SnapshotMode } from '../core/html-snapshot';
 import type { StyleGroupId, StyleProp } from '../core/style-groups';
 import type { SelectionItem } from '../core/markdown';
+import { getIframeOffset } from '../core/iframe-manager';
 
 type PopcardKind = 'edit' | 'style' | 'html';
 
@@ -94,6 +95,12 @@ function render(layer: HTMLDivElement, ref: MountedRef): void {
   }
 
   const rect = el.getBoundingClientRect();
+  // iframe 内元素的 rect 是相对于 iframe 视口的，需要加上 iframe 在顶层文档中的偏移
+  const offset = getIframeOffset(el);
+  const absRect = new DOMRect(
+    rect.left + offset.x, rect.top + offset.y,
+    rect.width, rect.height,
+  );
   let mounted = ref.get();
 
   // Rebuild only when the selection or card kind changes — never on scroll.
@@ -114,11 +121,11 @@ function render(layer: HTMLDivElement, ref: MountedRef): void {
 
   // First check if there's room vertically above/below; if not, place
   // horizontally to the left/right of narrow elements (e.g., sidebars).
-  const fitsAbove = rect.top >= tbH + TOOLBAR_GAP + 4;
-  const fitsBelow = rect.bottom + tbH + TOOLBAR_GAP + 4 <= window.innerHeight;
+  const fitsAbove = absRect.top >= tbH + TOOLBAR_GAP + 4;
+  const fitsBelow = absRect.bottom + tbH + TOOLBAR_GAP + 4 <= window.innerHeight;
   const placeAbove = fitsAbove;
-  const placeLeft = !fitsAbove && !fitsBelow && rect.left >= 200;
-  const placeRight = !fitsAbove && !fitsBelow && !placeLeft && window.innerWidth - rect.right >= 200;
+  const placeLeft = !fitsAbove && !fitsBelow && absRect.left >= 200;
+  const placeRight = !fitsAbove && !fitsBelow && !placeLeft && window.innerWidth - absRect.right >= 200;
 
   // (Re)build the popcard only if the requested kind changed.
   const wantKind = ui.popcard;
@@ -144,11 +151,11 @@ function render(layer: HTMLDivElement, ref: MountedRef): void {
   }
 
   // Layout — runs every frame; cheap because we only mutate top/left.
-  positionToolbar(mounted!.toolbarEl, rect, tbH, placeAbove, placeLeft, placeRight);
+  positionToolbar(mounted!.toolbarEl, absRect, tbH, placeAbove, placeLeft, placeRight);
   if (mounted!.cardEl) {
     const width = wantKind === 'style' ? 480 : 320;
     const sideMode = placeLeft || placeRight;
-    positionCard(mounted!.cardEl, rect, width, placeAbove, mounted!.cardHeight, sideMode, mounted!.toolbarEl, tbH);
+    positionCard(mounted!.cardEl, absRect, width, placeAbove, mounted!.cardHeight, sideMode, mounted!.toolbarEl, tbH);
     alignArrow(mounted!.cardEl, mounted!.toolbarEl, wantKind!);
   }
 }
